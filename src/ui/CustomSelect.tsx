@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useRef, useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Icon, type IconName } from './Icon';
 
@@ -14,16 +14,17 @@ type Props<T extends string> = {
 
 export function CustomSelect<T extends string>({ label, ariaLabel, value, options, onChange, disabled }: Props<T>) {
   const id = useId();
+  const trigger = useRef<HTMLButtonElement>(null), [open, setOpen] = useState(false);
   // Префикс позволяет сохранить пустое значение «Создать новый набор».
   const encode = (value: string) => 'value:' + value;
   return <div className="select-field">
     <label htmlFor={id}>{label}</label>
-    <Select.Root value={encode(value)} onValueChange={next => onChange(next.slice(6) as T)} disabled={disabled}>
-      <Select.Trigger id={id} className="select-trigger" aria-label={ariaLabel || label}>
+    <Select.Root open={open} onOpenChange={setOpen} value={encode(value)} onValueChange={next => onChange(next.slice(6) as T)} disabled={disabled}>
+      <Select.Trigger ref={trigger} id={id} className="select-trigger" aria-label={ariaLabel || label}>
         <Select.Value />
         <Select.Icon className="select-chevron"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg></Select.Icon>
       </Select.Trigger>
-      <Select.Portal>
+      <Select.Portal container={trigger.current?.closest('dialog') || undefined}>
         <Select.Content className="select-menu" position="popper" sideOffset={5} collisionPadding={8} aria-label={ariaLabel || label}>
           <Select.Viewport className="select-options">
             {options.map(option => <Select.Item key={option.value} value={encode(option.value)} className="select-option">

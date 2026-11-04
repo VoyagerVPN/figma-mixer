@@ -1,6 +1,6 @@
 import { Library } from './library';
 import { SceneRenderer } from './scene';
-import { DeepSeekKeyRequired, selectWithDeepSeek } from './deepseek';
+import { AIKeyRequired, aiPresets, configureAI, publicAI, selectWithAI, validateAIConfig, type AIConnection } from './ai';
 import { ArtworkChannel } from './artwork-channel';
 import { PaletteStore } from './palette-store';
 import { generateCompositions } from './generation';
@@ -9,24 +9,25 @@ declare const __html__: string;
 const library = new Library();
 const palettes = new PaletteStore(figma.root);
 const renderer = new SceneRenderer(() => palettes.all());
-let apiKey = '', busy = false, initialized = false;
+let connection: AIConnection = { ...aiPresets.deepseek, apiKey: '' };
+let busy = false, initialized = false;
 const send = (message: unknown) => figma.ui.postMessage(message);
 const artwork = new ArtworkChannel(send);
-const catalog = () => send({ type: 'catalog', sets: library.sets, items: library.items, palettes: palettes.all(), keyReady: Boolean(apiKey) });
+const catalog = () => send({ type: 'catalog', sets: library.sets, items: library.items, palettes: palettes.all(), keyReady: Boolean(connection.apiKey), aiConfig: publicAI(connection) });
 figma.showUI(__html__, { width: 520, height: 840, themeColors: true });
 
 figma.ui.onmessage = async message => {
   if (message.type === 'close' && !busy) { figma.closePlugin(); return; }
   if (message.type === 'artwork-analysis') { artwork.receive(message); return; }
   if (message.type === 'ready') { if (initialized) { catalog(); if (!busy) send({ type: 'idle' }); } return; }
-  if (message.type === 'key') { apiKey = String(message.key || '').trim(); send({ type: 'key-ready', ready: Boolean(apiKey) }); return; }
   if (busy) { send({ type: 'error', message: 'Дождитесь завершения текущей операции' }); return; }
   busy = true;
   try {
+    if (message.type === 'configure-ai') { const next = configureAI(message.config, connection); await figma.clientStorage.setAsync('mixer-ai-config-v1', publicAI(next)); connection = next; send({ type: 'ai-configured', config: publicAI(connection), ready: true }); }
     if (message.type === 'generate-prompt') {
       const input = message.input;
       if (input.setId === 'starter' && !library.sets.some(set => set.id === 'starter')) { await library.starter(); catalog(); }
-      const result = await generateCompositions(input, library.items.filter(item => item.setId === input.setId), palettes.all(), apiKey, {
+      const result = await generateCompositions(input, library.items.filter(item => item.setId === input.setId), palettes.all(), connection, {
         create: options => renderer.create(options, library.items, samples => artwork.analyze(samples)),
         removeGenerated: ids => renderer.removeGenerated(ids)
       });
@@ -61,10 +62,10 @@ figma.ui.onmessage = async message => {
     if (message.type === 'ai') {
       const items = library.items.filter(i => i.setId === message.setId);
       if (!items.length || !String(message.query || '').trim()) throw new Error('Выберите набор и введите описание композиции');
-      send({ type: 'selection', ...await selectWithDeepSeek(message.query, items, apiKey) });
+      send({ type: 'selection', ...await selectWithAI(message.query, items, connection) });
     }
-  } catch (error) { send({ type: error instanceof DeepSeekKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : 'Не удалось выполнить действие' }); }
+  } catch (error) { send({ type: error instanceof AIKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : 'Не удалось выполнить действие' }); }
   finally { busy = false; send({ type: 'idle' }); }
 };
 busy = true;
-library.init().then(() => { initialized = true; catalog(); }).catch(error => send({ type: 'error', message: String(error) })).finally(() => { busy = false; send({ type: 'idle' }); });
+Promise.all([library.init(), figma.clientStorage.getAsync('mixer-ai-config-v1').then(saved => { if (saved) connection = { ...validateAIConfig(saved), apiKey: '' }; })]).then(() => { initialized = true; catalog(); }).catch(error => send({ type: 'error', message: String(error) })).finally(() => { busy = false; send({ type: 'idle' }); });

@@ -48,9 +48,9 @@ try {
   await page.goto(base + '?empty');
   await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Сложная задача и новые идеи');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Подключение DeepSeek', exact: true }).waitFor();
+  await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor();
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
-  await page.getByRole('button', { name: 'Подключить', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Сложная задача и новые идеи');
   console.log('OK подключение ключа продолжает исходный запрос без повторного ввода');
@@ -65,11 +65,11 @@ try {
   await page.goto(base);
   await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Новая идея');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Подключение DeepSeek', exact: true }).getByRole('button', { name: 'Закрыть панель', exact: true }).click();
-  await page.getByRole('button', { name: 'Настройки DeepSeek', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).getByRole('button', { name: 'Закрыть панель', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки AI', exact: true }).click();
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
-  await page.getByRole('button', { name: 'Подключить', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Подключение DeepSeek', exact: true }).waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor({ state: 'hidden' });
   assert.equal(await page.locator('html').getAttribute('data-prompt-result'), null);
   console.log('OK отменённый запрос не возобновляется при последующем подключении');
   assert.deepEqual(errors, []);

@@ -1,7 +1,7 @@
 import { PaletteStore } from '../src/palette-store';
 import library from '../src/assets/library.json';
 import { generateCompositions } from '../src/generation';
-import { DeepSeekKeyRequired } from '../src/deepseek';
+import { AIKeyRequired, aiPresets, configureAI, publicAI, validateAIConfig } from '../src/ai';
 import '../src/ui';
 
 // Граница Figma ↔ iframe: тот же документный store, транспорт заменён браузерными сообщениями.
@@ -23,20 +23,23 @@ let created = false, starterPresent = !new URLSearchParams(location.search).has(
 let imported: typeof items = [], importedName = '';
 let createFailed = false;
 let keyReady = new URLSearchParams(location.search).has('connected');
-const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: 'Стартовый набор' }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady });
+const savedAI = localStorage.getItem('mixer-ai-config-v1');
+let connection = { ...(savedAI ? validateAIConfig(JSON.parse(savedAI)) : aiPresets.deepseek), apiKey: keyReady ? 'test-key' : '' };
+const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: 'Стартовый набор' }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady, aiConfig: publicAI(connection) });
 window.addEventListener('message', event => {
   const m = event.data?.pluginMessage;
   if (m?.type === 'close') document.documentElement.dataset.closed = 'true';
   if (m?.type === 'ready') { catalog(); send({ type: 'idle' }); }
-  if (m?.type === 'key') { keyReady = Boolean(m.key); send({ type: 'key-ready', ready: keyReady }); }
+  if (m?.type === 'configure-ai') { try { connection = configureAI(m.config, connection); keyReady = Boolean(connection.apiKey); localStorage.setItem('mixer-ai-config-v1', JSON.stringify(publicAI(connection))); send({ type: 'ai-configured', config: publicAI(connection), ready: keyReady }); } catch (error) { send({ type: 'error', message: String(error) }); } send({ type: 'idle' }); }
   if (m?.type === 'generate-prompt') void (async () => {
     try {
       if (m.input.setId === 'starter') { starterPresent = true; catalog(); }
       const selected = m.input.setId === 'starter' ? items : imported;
-      const result = await generateCompositions(m.input, selected, store.all(), keyReady ? 'test-key' : '', {
+      const result = await generateCompositions(m.input, selected, store.all(), connection, {
         create: async options => { document.documentElement.dataset.created = JSON.stringify(options); return { frameIds: ['frame-' + options.variant] }; },
         removeGenerated: async () => {}
-      }, async () => {
+      }, async (url, options) => {
+        document.documentElement.dataset.aiRequest = JSON.stringify({ url, body: JSON.parse(String(options?.body)) });
         const combinations: string[][] = [];
         for (let a = 0; a < selected.length; a++) for (let b = a + 1; b < selected.length; b++) combinations.push([selected[a].id, selected[b].id]);
         combinations.push(...selected.map(item => [item.id]));
@@ -46,7 +49,7 @@ window.addEventListener('message', event => {
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ directions }) } }] }));
       });
       document.documentElement.dataset.promptResult = JSON.stringify(result); send({ type: 'prompt-result', ...result });
-    } catch (error) { send({ type: error instanceof DeepSeekKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : String(error) }); }
+    } catch (error) { send({ type: error instanceof AIKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : String(error) }); }
     finally { send({ type: 'idle' }); }
   })();
   if (m?.type === 'starter') { starterPresent = true; catalog(); send({ type: 'open-set', setId: 'starter' }); send({ type: 'idle' }); }
