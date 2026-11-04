@@ -1,5 +1,7 @@
 import { PaletteStore } from '../src/palette-store';
 import library from '../src/assets/library.json';
+import { generateCompositions } from '../src/generation';
+import { DeepSeekKeyRequired } from '../src/deepseek';
 import '../src/ui';
 
 // Граница Figma ↔ iframe: тот же документный store, транспорт заменён браузерными сообщениями.
@@ -20,11 +22,33 @@ const send = (message: unknown) => window.postMessage({ pluginMessage: message }
 let created = false, starterPresent = !new URLSearchParams(location.search).has('empty');
 let imported: typeof items = [], importedName = '';
 let createFailed = false;
-const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: 'Стартовый набор' }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady: false });
+let keyReady = new URLSearchParams(location.search).has('connected');
+const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: 'Стартовый набор' }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady });
 window.addEventListener('message', event => {
   const m = event.data?.pluginMessage;
   if (m?.type === 'close') document.documentElement.dataset.closed = 'true';
-  if (m?.type === 'ready') catalog();
+  if (m?.type === 'ready') { catalog(); send({ type: 'idle' }); }
+  if (m?.type === 'key') { keyReady = Boolean(m.key); send({ type: 'key-ready', ready: keyReady }); }
+  if (m?.type === 'generate-prompt') void (async () => {
+    try {
+      if (m.input.setId === 'starter') { starterPresent = true; catalog(); }
+      const selected = m.input.setId === 'starter' ? items : imported;
+      const result = await generateCompositions(m.input, selected, store.all(), keyReady ? 'test-key' : '', {
+        create: async options => { document.documentElement.dataset.created = JSON.stringify(options); return { frameIds: ['frame-' + options.variant] }; },
+        removeGenerated: async () => {}
+      }, async () => {
+        const combinations: string[][] = [];
+        for (let a = 0; a < selected.length; a++) for (let b = a + 1; b < selected.length; b++) combinations.push([selected[a].id, selected[b].id]);
+        combinations.push(...selected.map(item => [item.id]));
+        const candidates = m.input.palette === 'auto' ? store.all() : [{ id: m.input.palette }];
+        const directions = Array.from({ length: m.input.count }, (_, index) => ({ title: 'Идея ' + (index + 1), ids: combinations[index % combinations.length], palette: candidates[index % candidates.length].id, backgroundIndex: index % 3, style: 'balanced', heroId: '', backgroundIds: [], explanation: 'Предметы раскрывают тему с разных сторон.' }));
+        if (new URLSearchParams(location.search).has('ai-error')) directions[0].ids = ['invented'];
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ directions }) } }] }));
+      });
+      document.documentElement.dataset.promptResult = JSON.stringify(result); send({ type: 'prompt-result', ...result });
+    } catch (error) { send({ type: error instanceof DeepSeekKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : String(error) }); }
+    finally { send({ type: 'idle' }); }
+  })();
   if (m?.type === 'starter') { starterPresent = true; catalog(); send({ type: 'open-set', setId: 'starter' }); send({ type: 'idle' }); }
   if (m?.type === 'save-set') {
     importedName = m.name;

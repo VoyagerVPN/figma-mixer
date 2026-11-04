@@ -21,7 +21,7 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true, env: 
 const page = await browser.newPage({ viewport: { width: 520, height: 840 } }), errors = [];
 page.setDefaultTimeout(6000); page.on('pageerror', error => errors.push(error.message));
 const base = `http://127.0.0.1:${server.address().port}`;
-async function compose() { await page.getByRole('button', { name: 'Готовая библиотека', exact: true }).click(); for (const name of ['Пазлы', 'Книга', 'Телефон']) await page.getByRole('button', { name, exact: true }).click(); await page.getByRole('button', { name: 'К параметрам', exact: true }).click(); }
+async function compose() { await page.getByRole('button', { name: 'Параметры вывода', exact: true }).click(); await page.getByRole('button', { name: 'Выбрать предметы вручную', exact: true }).click(); for (const name of ['Пазлы', 'Книга', 'Телефон']) await page.getByRole('button', { name, exact: true }).click(); await page.getByRole('button', { name: 'К параметрам', exact: true }).click(); }
 try {
   await page.goto(base); await compose();
   await page.getByRole('button', { name: 'Палитры', exact: true }).click();

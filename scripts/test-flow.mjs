@@ -21,10 +21,13 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true, env: 
 const page = await browser.newPage({ viewport: { width: 520, height: 840 } }), errors = [];
 page.setDefaultTimeout(4000); page.on('pageerror', error => errors.push(error.message));
 const base = `http://127.0.0.1:${server.address().port}`;
+async function openAdvanced() { const button = page.getByRole('button', { name: 'Параметры вывода', exact: true }); if (await button.getAttribute('aria-expanded') === 'false') await button.click(); }
+async function openManual() { await openAdvanced(); await page.getByRole('button', { name: 'Выбрать предметы вручную', exact: true }).click(); }
+async function own() { await page.getByRole('combobox', { name: 'Библиотека', exact: true }).click(); await page.getByRole('option', { name: 'Добавить свои элементы…', exact: true }).click(); }
 try {
   await page.goto(base);
   await page.getByRole('heading', { name: 'Новая композиция', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Готовая библиотека', exact: true }).click();
+  await openManual();
   assert.equal(await page.getByRole('button', { name: 'К параметрам', exact: true }).isDisabled(), true);
   for (const name of ['Пазлы', 'Книга', 'Телефон']) await page.getByRole('button', { name, exact: true }).click();
   await page.getByRole('button', { name: 'К параметрам', exact: true }).click();
@@ -56,10 +59,10 @@ try {
   await page.waitForFunction(() => document.documentElement.dataset.closed === 'true');
   console.log('OK результат → повторная генерация с сохранением настроек → закрытие для работы в Figma');
   await page.goto(base + '?empty');
-  await page.getByRole('button', { name: 'Свои элементы', exact: true }).click();
+  await own();
   await page.getByRole('button', { name: 'Назад', exact: true }).click();
   await page.getByRole('heading', { name: 'Новая композиция', exact: true }).waitFor();
-  await page.getByRole('button', { name: 'Готовая библиотека', exact: true }).click();
+  await openManual();
   await page.getByRole('heading', { name: 'Выберите предметы', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'К параметрам', exact: true }).isDisabled(), true);
   await page.screenshot({ path: resolve(output, 'selection.png') });
@@ -75,17 +78,17 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Ручка', exact: true }).isEnabled(), true);
   await page.getByRole('button', { name: 'К параметрам', exact: true }).click();
   await page.getByRole('button', { name: 'Источники', exact: true }).click();
-  await page.getByRole('button', { name: 'Управление библиотеками', exact: true }).click();
+  await openAdvanced(); await page.getByRole('button', { name: 'Управление библиотеками', exact: true }).click();
   await page.getByRole('button', { name: 'Стартовый набор Элементов: 10', exact: true }).click();
   assert.equal(await page.getByRole('checkbox', { name: 'Объединить Книга', exact: true }).isVisible(), true);
-  await page.getByRole('button', { name: 'Создать композицию', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать композицию', exact: true }).click(); await openManual();
   await page.getByRole('heading', { name: 'Выберите предметы', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'К параметрам', exact: true }).isDisabled(), true);
   console.log('OK поиск, лимит восьми предметов и отдельное управление библиотекой');
   await page.goto(base + '?empty');
-  await page.getByRole('button', { name: 'Свои элементы', exact: true }).click();
+  await own();
   await page.locator('input[type=file][accept=".svg,image/svg+xml"]').setInputFiles({ name: 'Круг.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><circle cx="40" cy="40" r="30" fill="#333333"/></svg>') });
-  await page.getByRole('button', { name: 'К выбору предметов', exact: true }).click();
+  await page.getByRole('button', { name: 'Использовать библиотеку', exact: true }).click(); await openManual();
   await page.getByRole('heading', { name: 'Выберите предметы', exact: true }).waitFor();
   await page.getByRole('button', { name: 'Круг', exact: true }).click();
   await page.getByRole('button', { name: 'К параметрам', exact: true }).click();
@@ -95,14 +98,14 @@ try {
   assert.deepEqual(imported.ids, ['imported-0']);
   console.log('OK свои SVG → сохранение библиотеки → выбор → генерация');
   await page.getByRole('button', { name: 'Источники', exact: true }).click();
-  await page.getByRole('button', { name: 'Свои элементы', exact: true }).click();
+  await own();
   await page.locator('input[type=file][accept=".svg,image/svg+xml"]').setInputFiles({ name: 'Квадрат.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="#333333"/></svg>') });
-  await page.getByRole('button', { name: 'К выбору предметов', exact: true }).click();
+  await page.getByRole('button', { name: 'Использовать библиотеку', exact: true }).click(); await openManual();
   await page.getByRole('heading', { name: 'Выберите предметы', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'К параметрам', exact: true }).isDisabled(), true);
   console.log('OK новый импорт после результата не открывает прошлую генерацию');
   await page.goto(base + '?create-error');
-  await page.getByRole('button', { name: 'Готовая библиотека', exact: true }).click();
+  await openManual();
   await page.getByRole('button', { name: 'Книга', exact: true }).click();
   await page.getByRole('button', { name: 'К параметрам', exact: true }).click();
   await page.getByRole('button', { name: 'Создать варианты', exact: true }).click();

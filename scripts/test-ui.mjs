@@ -1,3 +1,4 @@
 await import('./test-dnd.mjs');
 await import('./test-palettes.mjs');
 await import('./test-flow.mjs');
+await import('./test-ai.mjs');

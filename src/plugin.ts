@@ -1,8 +1,9 @@
 import { Library } from './library';
 import { SceneRenderer } from './scene';
-import { selectWithDeepSeek } from './deepseek';
+import { DeepSeekKeyRequired, selectWithDeepSeek } from './deepseek';
 import { ArtworkChannel } from './artwork-channel';
 import { PaletteStore } from './palette-store';
+import { generateCompositions } from './generation';
 
 declare const __html__: string;
 const library = new Library();
@@ -17,11 +18,22 @@ figma.showUI(__html__, { width: 520, height: 840, themeColors: true });
 figma.ui.onmessage = async message => {
   if (message.type === 'close' && !busy) { figma.closePlugin(); return; }
   if (message.type === 'artwork-analysis') { artwork.receive(message); return; }
-  if (message.type === 'ready') { if (initialized) catalog(); return; }
+  if (message.type === 'ready') { if (initialized) { catalog(); if (!busy) send({ type: 'idle' }); } return; }
   if (message.type === 'key') { apiKey = String(message.key || '').trim(); send({ type: 'key-ready', ready: Boolean(apiKey) }); return; }
   if (busy) { send({ type: 'error', message: 'Дождитесь завершения текущей операции' }); return; }
   busy = true;
   try {
+    if (message.type === 'generate-prompt') {
+      const input = message.input;
+      if (input.setId === 'starter' && !library.sets.some(set => set.id === 'starter')) { await library.starter(); catalog(); }
+      const result = await generateCompositions(input, library.items.filter(item => item.setId === input.setId), palettes.all(), apiKey, {
+        create: options => renderer.create(options, library.items, samples => artwork.analyze(samples)),
+        removeGenerated: ids => renderer.removeGenerated(ids)
+      });
+      const frames = (await Promise.all(result.frameIds.map(id => figma.getNodeByIdAsync(id)))).filter((node): node is FrameNode => node?.type === 'FRAME');
+      figma.currentPage.selection = frames; figma.viewport.scrollAndZoomIntoView(frames); figma.commitUndo();
+      send({ type: 'prompt-result', ...result });
+    }
     if (message.type === 'capture-selection') send({ type: 'draft', ...await library.captureSelection(Boolean(message.split), message.fresh !== false) });
     if (message.type === 'highlight') await library.highlight(message.nodeId);
     if (message.type === 'save-set') {
@@ -51,7 +63,7 @@ figma.ui.onmessage = async message => {
       if (!items.length || !String(message.query || '').trim()) throw new Error('Выберите набор и введите описание композиции');
       send({ type: 'selection', ...await selectWithDeepSeek(message.query, items, apiKey) });
     }
-  } catch (error) { send({ type: 'error', message: error instanceof Error ? error.message : 'Не удалось выполнить действие' }); }
+  } catch (error) { send({ type: error instanceof DeepSeekKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : 'Не удалось выполнить действие' }); }
   finally { busy = false; send({ type: 'idle' }); }
 };
 busy = true;

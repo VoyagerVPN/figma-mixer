@@ -1,0 +1,76 @@
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { createServer } from 'node:http';
+import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+
+const root = resolve(import.meta.dirname, '..'), output = resolve(root, '.cache/qa/ai-browser'), temporary = resolve(root, '.cache/playwright/tmp');
+await Promise.all([output, temporary].map(path => mkdir(path, { recursive: true })));
+process.env.TEMP = temporary; process.env.TMP = temporary;
+process.env.PLAYWRIGHT_BROWSERS_PATH = resolve(root, '.cache/playwright/browsers');
+await build({ entryPoints: [resolve(root, 'tests/palettes-fixture.ts')], outfile: resolve(output, 'app.js'), bundle: true, format: 'iife', target: 'chrome100' });
+await writeFile(resolve(output, 'index.html'), '<!doctype html><html lang="ru"><meta charset="utf-8"><link rel="stylesheet" href="/app.css"><div id="root"></div><script src="/app.js"></script></html>');
+const server = createServer(async (request, response) => {
+  const file = request.url === '/app.js' ? 'app.js' : request.url === '/app.css' ? 'app.css' : 'index.html';
+  response.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+  response.end(await readFile(resolve(output, file)));
+});
+await new Promise(done => server.listen(0, '127.0.0.1', done));
+const { chromium } = await import('playwright');
+const browser = await chromium.launch({ channel: 'msedge', headless: true, env: { ...process.env } });
+const page = await browser.newPage({ viewport: { width: 520, height: 840 } }), errors = [];
+page.setDefaultTimeout(4000); page.on('pageerror', error => errors.push(error.message));
+const base = `http://127.0.0.1:${server.address().port}`;
+try {
+  await page.goto(base + '?connected&empty');
+  await page.getByRole('heading', { name: 'Новая композиция', exact: true }).waitFor();
+  assert.equal(await page.getByRole('combobox').count(), 2);
+  assert.equal(await page.locator('.compose-items:visible').count(), 0);
+  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Обучение через практику');
+  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Обучение через практику');
+  assert.equal(await page.getByRole('combobox').count(), 2);
+  const generated = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
+  assert.equal(generated.directions.length, 3);
+  assert.equal(new Set(generated.directions.map(p => [...p.ids].sort().join(','))).size, 3);
+  await page.screenshot({ path: resolve(output, 'result.png') });
+  console.log('OK три основных поля → один запрос → разные составы → результат на том же экране');
+  await page.getByRole('combobox', { name: 'Палитра', exact: true }).click();
+  await page.getByRole('option', { name: 'Персик', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await page.waitForFunction(() => JSON.parse(document.documentElement.dataset.promptResult || '{}').directions?.every(p => p.palette === 'peach'));
+  await page.setViewportSize({ width: 400, height: 700 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.screenshot({ path: resolve(output, 'narrow.png') });
+  console.log('OK фиксированная палитра во всех решениях и панель 400 px');
+
+  await page.goto(base + '?empty');
+  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Сложная задача и новые идеи');
+  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Подключение DeepSeek', exact: true }).waitFor();
+  await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
+  await page.getByRole('button', { name: 'Подключить', exact: true }).click();
+  await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Сложная задача и новые идеи');
+  console.log('OK подключение ключа продолжает исходный запрос без повторного ввода');
+
+  await page.goto(base + '?connected&ai-error');
+  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Новая идея');
+  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'неизвестный предмет' }).waitFor();
+  assert.equal(await page.locator('html').getAttribute('data-created'), null);
+  assert.equal(await page.getByRole('button', { name: 'Создать композиции', exact: true }).isEnabled(), true);
+  console.log('OK ошибочный AI-план не создаёт фреймы и сохраняет запрос');
+  await page.goto(base);
+  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Новая идея');
+  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Подключение DeepSeek', exact: true }).getByRole('button', { name: 'Закрыть панель', exact: true }).click();
+  await page.getByRole('button', { name: 'Настройки DeepSeek', exact: true }).click();
+  await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
+  await page.getByRole('button', { name: 'Подключить', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Подключение DeepSeek', exact: true }).waitFor({ state: 'hidden' });
+  assert.equal(await page.locator('html').getAttribute('data-prompt-result'), null);
+  console.log('OK отменённый запрос не возобновляется при последующем подключении');
+  assert.deepEqual(errors, []);
+} finally { await browser.close(); await new Promise(done => server.close(done)); }

@@ -2,7 +2,7 @@ import { useId } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Icon, type IconName } from './Icon';
 
-type Option<T extends string> = { value: T; label: string; icon?: IconName };
+type Option<T extends string> = { value: T; label: string; icon?: IconName; colors?: string[] };
 type Props<T extends string> = {
   label: string;
   ariaLabel?: string;
@@ -27,7 +27,7 @@ export function CustomSelect<T extends string>({ label, ariaLabel, value, option
         <Select.Content className="select-menu" position="popper" sideOffset={5} collisionPadding={8} aria-label={ariaLabel || label}>
           <Select.Viewport className="select-options">
             {options.map(option => <Select.Item key={option.value} value={encode(option.value)} className="select-option">
-              <Select.ItemText><span className="select-option-label">{option.icon && <Icon name={option.icon} />}{option.label}</span></Select.ItemText>
+              <Select.ItemText><span className="select-option-label">{option.icon && <Icon name={option.icon} />}{option.colors && <span className="select-color-strip" aria-hidden="true">{option.colors.map((color, index) => <i key={index} style={{ background: color }} />)}</span>}{option.label}</span></Select.ItemText>
               <Select.ItemIndicator className="select-indicator" aria-hidden="true">✓</Select.ItemIndicator>
             </Select.Item>)}
           </Select.Viewport>

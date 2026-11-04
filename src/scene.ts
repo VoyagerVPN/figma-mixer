@@ -103,8 +103,14 @@ export class SceneRenderer {
       }
       this.current = created[0]; figma.currentPage.selection = created;
       figma.viewport.scrollAndZoomIntoView(created); figma.commitUndo();
-      return { name: created[0].name, width: options.width, height: options.height, count: picked.length, variants: count, warnings: [...new Set(warnings)] };
+      return { name: created[0].name, width: options.width, height: options.height, count: picked.length, variants: count, frameIds: created.map(frame => frame.id), warnings: [...new Set(warnings)] };
     } catch (error) { created.filter(n => !n.removed).forEach(n => n.remove()); throw error; }
+  }
+
+  async removeGenerated(ids: string[]) {
+    for (const id of ids) { const node = await figma.getNodeByIdAsync(id); if (node && node.type === 'FRAME' && node.getPluginData('mixer-scene')) node.remove(); }
+    if (this.current?.removed) this.current = null;
+    figma.commitUndo();
   }
 
   selected() {

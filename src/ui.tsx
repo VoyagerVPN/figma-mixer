@@ -11,7 +11,8 @@ import { Panel } from './ui/Panel';
 import { Icon } from './ui/Icon';
 import { builtInPalettes, type NamedPalette } from './palettes';
 import { PaletteManager } from './ui/PaletteManager';
-import { GenerationStart } from './ui/GenerationStart';
+import { GenerationStart, type PromptDraft } from './ui/GenerationStart';
+import type { Direction, GenerationInput } from './generation';
 import './ui.css';
 import './ui/flow.css';
 
@@ -20,7 +21,7 @@ function App() {
   const [sets, setSets] = useState<SetInfo[]>([]), [items, setItems] = useState<Item[]>([]);
   const [view, setView] = useState<'home' | 'libraries' | 'set' | 'import' | 'generate'>('home');
   const [activeId, setActiveId] = useState(''), [targetId, setTargetId] = useState('');
-  const importDestination = useRef<'set' | 'generate'>('generate');
+  const importDestination = useRef<'set' | 'generate' | 'home'>('home');
   const importReturn = useRef<'home' | 'libraries' | 'set'>('home');
   const [selected, setSelected] = useState<string[]>([]), [mergeIds, setMergeIds] = useState<string[]>([]);
   const [mergeName, setMergeName] = useState(''), [editing, setEditing] = useState<Item | null>(null);
@@ -29,11 +30,14 @@ function App() {
   const [keyReady, setKeyReady] = useState(false), [settings, setSettings] = useState(false), [key, setKey] = useState('');
   const [scene, setScene] = useState('');
   const [generation, setGeneration] = useState(0);
-  const [palettes, setPalettes] = useState<NamedPalette[]>(builtInPalettes), [paletteId, setPaletteId] = useState('original'), [paletteOpen, setPaletteOpen] = useState(false);
+  const [palettes, setPalettes] = useState<NamedPalette[]>(builtInPalettes), [paletteId, setPaletteId] = useState('auto'), [paletteOpen, setPaletteOpen] = useState(false);
+  const [promptDraft, setPromptDraft] = useState<PromptDraft>({ query: '', format: '1200x630', count: 3, detail: 'default' }), [promptResult, setPromptResult] = useState<Direction[]>([]);
+  const pendingInput = useRef<GenerationInput | null>(null);
+  const keyRequested = useRef(false);
   const [transientPalette, setTransientPalette] = useState<NamedPalette | null>(null);
   const availablePalettes = transientPalette ? [...palettes, transientPalette] : palettes;
   const activeSet = sets.find(s => s.id === activeId);
-  const currentItems = useMemo(() => items.filter(i => i.setId === activeId), [items, activeId]);
+  const currentItems = useMemo(() => items.filter(i => i.setId === (activeId || 'starter')), [items, activeId]);
   const previewItems = useMemo(() => { const picked = currentItems.filter(item => selected.includes(item.id)); return picked.length ? picked : currentItems.slice(0, 3); }, [currentItems, selected]);
   const [search, setSearch] = useState('');
   const main = useRef<HTMLElement>(null);
@@ -47,9 +51,11 @@ function App() {
           .catch(error => post('artwork-analysis', { requestId: m.requestId, error: error instanceof Error ? error.message : 'Не удалось проанализировать графику' }));
         return;
       }
-      if (m.type === 'catalog') { setSets(m.sets || []); setItems(m.items); if (m.palettes) setPalettes(m.palettes); setKeyReady(m.keyReady); setBusy(''); }
+      if (m.type === 'catalog') { setSets(m.sets || []); setItems(m.items); if (m.palettes) setPalettes(m.palettes); setKeyReady(m.keyReady); }
       if (m.type === 'palette-saved') { setTransientPalette(null); setPaletteId(m.id); setPaletteOpen(false); setNotice('Палитра сохранена в этом файле Figma'); }
-      if (m.type === 'error') { setError(m.message); setBusy(''); }
+      if (m.type === 'error') { pendingInput.current = null; keyRequested.current = false; setError(m.message); setBusy(''); }
+      if (m.type === 'needs-key') { keyRequested.current = true; setSettings(true); setBusy(''); }
+      if (m.type === 'prompt-result') { pendingInput.current = null; setPromptResult(m.directions); setNotice(m.warnings?.join('. ') || ''); }
       if (m.type === 'idle') setBusy('');
       if (m.type === 'draft') { setDraft(m.items); setCanSplit(m.canSplit); setSkipped(m.skipped); }
       if (m.type === 'saved-set' || m.type === 'open-set') { setActiveId(m.setId); setView(importDestination.current); setScene(''); setGeneration(0); setSelected([]); setMergeIds([]); setDraft([]); setNotice(m.type === 'saved-set' ? 'Набор сохранён в этом файле Figma' : ''); }
@@ -59,7 +65,7 @@ function App() {
       if (m.type === 'scene') { setScene(`Создано вариантов: ${m.variants} · ${m.width} × ${m.height}`); setGeneration(value => value + 1); setNotice(m.warnings?.join('. ') || ''); }
       if (m.type === 'layer-order') setScene(`Упорядочено композиций: ${m.count}. Предметы расположены по глубине сцены.`);
       if (m.type === 'notice') setNotice(m.message);
-      if (m.type === 'key-ready') { setKeyReady(m.ready); setSettings(false); setKey(''); setNotice('Ключ подключён для текущей сессии'); }
+      if (m.type === 'key-ready') { setKeyReady(m.ready); setSettings(false); setKey(''); setNotice('Ключ подключён для текущей сессии'); if (m.ready && keyRequested.current && pendingInput.current) { keyRequested.current = false; command('generate-prompt', { input: pendingInput.current }, 'Подбираем идеи и создаём композиции…'); } }
       if (m.type === 'download') {
         const url = URL.createObjectURL(new Blob([m.data], { type: m.mime }));
         const a = document.createElement('a'); a.href = url; a.download = m.name; a.click();
@@ -72,11 +78,23 @@ function App() {
 
   function usePalette(palette: NamedPalette) { setTransientPalette(palette.id === 'draft' ? palette : null); setPaletteId(palette.id); setPaletteOpen(false); }
   function openPalettes() { setPaletteOpen(true); setError(''); }
+  function choosePromptPalette(id: string) { if (id === '__manage__') { if (!(activeId || '') && !currentItems.length) { importDestination.current = 'home'; command('starter', {}, 'Готовим библиотеку для предпросмотра…'); } openPalettes(); return; } setPaletteId(id); if (id !== 'draft') setTransientPalette(null); }
+  function generatePrompt() {
+    const [width, height] = promptDraft.format.split('x').map(Number);
+    const input: GenerationInput = { query: promptDraft.query.trim(), setId: activeId || 'starter', palette: paletteId === 'original' ? 'purple' : paletteId, paletteSnapshot: paletteId === 'draft' ? transientPalette || undefined : undefined, width, height, count: promptDraft.count, detail: promptDraft.detail, variant: generation };
+    pendingInput.current = input; command('generate-prompt', { input }, 'Подбираем идеи и создаём композиции…'); setGeneration(value => value + promptDraft.count);
+  }
+  function beginManual() {
+    const id = activeId || 'starter';
+    if (paletteId === 'auto') setPaletteId('original');
+    if (!sets.some(set => set.id === id)) readyLibrary();
+    else { openSet(id, true); if (promptResult[0]) setSelected(promptResult[0].ids); }
+  }
 
   function command(type: string, payload = {}, label = 'Выполняем…') { setError(''); setNotice(''); setBusy(label); post(type, payload); }
   function openSet(id: string, generate = false) { setActiveId(id); setView(generate ? 'generate' : 'set'); setSelected([]); setMergeIds([]); setEditing(null); setSearch(''); setScene(''); setGeneration(0); setError(''); setNotice(''); }
   function readyLibrary(generate = true) { importDestination.current = generate ? 'generate' : 'set'; if (sets.some(set => set.id === 'starter')) openSet('starter', generate); else command('starter', {}, 'Подготавливаем библиотеку…'); }
-  function startImport(id = '', generate = false) { importDestination.current = generate ? 'generate' : 'set'; importReturn.current = view === 'set' ? 'set' : view === 'libraries' ? 'libraries' : 'home'; setTargetId(id); setDraft([]); setCanSplit(false); setSkipped([]); setView('import'); setError(''); setNotice(''); }
+  function startImport(id = '', generate = false) { importDestination.current = generate ? 'home' : 'set'; importReturn.current = view === 'set' ? 'set' : view === 'libraries' ? 'libraries' : 'home'; setTargetId(id); setDraft([]); setCanSplit(false); setSkipped([]); setView('import'); setError(''); setNotice(''); }
   function toggle(id: string) { setSelected(current => current.includes(id) ? current.filter(x => x !== id) : current.length < 8 ? [...current, id] : current); }
   function selectText(query: string) {
     const found = resolveNames(query, currentItems);
@@ -86,14 +104,14 @@ function App() {
   }
 
   return <div className="app">
-    <header><div><span className="brand">Mixer</span><span className="version">Композиции из вашей графики</span></div><button className="connection icon-button" aria-label="Настройки DeepSeek" title={keyReady ? 'DeepSeek подключён' : 'Настройки DeepSeek'} onClick={() => setSettings(v => !v)}><Icon name="settings" /></button></header>
-    {paletteOpen && <PaletteManager palettes={availablePalettes} selected={paletteId} items={previewItems} scene={null} busy={Boolean(busy)} error={error} select={usePalette} apply={usePalette} save={palette => command('save-palette', { palette }, 'Сохраняем палитру…')} exportPalette={id => command('export-palette', { id }, 'Экспортируем палитру…')} close={() => setPaletteOpen(false)} />}
-    <Panel open={settings} title="Подключение DeepSeek" close={() => setSettings(false)}><p className="panel-description">Для подбора по смыслу. Ключ действует до закрытия плагина</p><label>API-ключ<input type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} /></label><div className="action-row"><label className="file-button with-icon"><Icon name="upload" />Загрузить key.txt<input type="file" accept=".txt" hidden onChange={async e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) post('key', { key: (await file.text()).trim() }); }} /></label><button className="primary with-icon" disabled={!key.trim()} onClick={() => post('key', { key })}><Icon name="key" />Подключить</button></div></Panel>
+    <header><div><span className="brand">Mixer</span><span className="version">Композиции из вашей графики</span></div><button className="connection icon-button" disabled={Boolean(busy)} aria-label="Настройки DeepSeek" title={keyReady ? 'DeepSeek подключён' : 'Настройки DeepSeek'} onClick={() => setSettings(v => !v)}><Icon name="settings" /></button></header>
+    {paletteOpen && <PaletteManager palettes={availablePalettes} selected={paletteId === 'auto' ? 'purple' : paletteId} items={previewItems} scene={null} busy={Boolean(busy)} error={error} select={usePalette} apply={usePalette} save={palette => command('save-palette', { palette }, 'Сохраняем палитру…')} exportPalette={id => command('export-palette', { id }, 'Экспортируем палитру…')} close={() => setPaletteOpen(false)} />}
+    <Panel open={settings} title="Подключение DeepSeek" close={() => { pendingInput.current = null; keyRequested.current = false; setSettings(false); }}><p className="panel-description">Для подбора по смыслу. Ключ действует до закрытия плагина</p><label>API-ключ<input type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} /></label><div className="action-row"><label className="file-button with-icon"><Icon name="upload" />Загрузить key.txt<input type="file" accept=".txt" hidden onChange={async e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) post('key', { key: (await file.text()).trim() }); }} /></label><button className="primary with-icon" disabled={!key.trim()} onClick={() => post('key', { key })}><Icon name="key" />Подключить</button></div></Panel>
     <main ref={main} className={view === 'generate' ? 'compose-view' : undefined}>
       {error && <div role="alert" className="message error">{error}</div>}
       {notice && <div role="status" className="message">{notice}</div>}
       {busy && <div role="status" className="progress">{busy}</div>}
-      {view === 'home' && <GenerationStart sets={sets} items={items} busy={Boolean(busy)} ready={() => readyLibrary()} own={() => startImport('', true)} choose={id => openSet(id, true)} manage={() => setView('libraries')} />}
+      {view === 'home' && <GenerationStart sets={sets} setId={activeId || 'starter'} palettes={availablePalettes} paletteId={paletteId} draft={promptDraft} result={promptResult} busy={Boolean(busy)} change={setPromptDraft} choose={id => { setActiveId(id); setPromptResult([]); }} choosePalette={choosePromptPalette} generate={generatePrompt} manual={beginManual} own={() => startImport('', true)} manage={() => setView('libraries')} finish={() => post('close')} />}
       {view === 'libraries' && <>
         <button className="back" onClick={() => setView('home')}><Icon name="arrow" />К генерации</button>
         <section className="home-intro"><h1>Библиотеки</h1><p className="intro">Объедините элементы в набор, затем создавайте из них варианты композиций.</p><div className="action-row"><button className="primary with-icon" disabled={Boolean(busy)} onClick={() => startImport()}><Icon name="plus" />Создать набор</button><button className="with-icon" disabled={Boolean(busy)} onClick={() => { startImport(); command('capture-selection', {}, 'Читаем выделение…'); }}><Icon name="selection" />Из выделения Figma</button></div></section>
@@ -102,7 +120,7 @@ function App() {
         {sets.length > 0 && !sets.some(s => s.id === 'starter') && <button className="link-button" onClick={() => readyLibrary(false)}>Открыть стартовый набор</button>}
         <p className="hint">Наборы хранятся внутри этого файла Figma. Для переноса используйте экспорт набора.</p>
       </>}
-      {view === 'import' && <ImportWizard key="import" forGeneration={importDestination.current === 'generate'} sets={sets} items={draft} targetId={targetId} setItems={setDraft} setTargetId={setTargetId} busy={Boolean(busy)} canSplit={canSplit} skipped={skipped} capture={split => command('capture-selection', { split, fresh: !split }, 'Читаем выделение…')} highlight={nodeId => command('highlight', { nodeId })} save={(name, items, setId) => command('save-set', { name, items, setId }, 'Сохраняем набор…')} cancel={() => { setView(importReturn.current); setDraft([]); setError(''); }} reportError={setError} />}
+      {view === 'import' && <ImportWizard key="import" forGeneration={importDestination.current !== 'set'} sets={sets} items={draft} targetId={targetId} setItems={setDraft} setTargetId={setTargetId} busy={Boolean(busy)} canSplit={canSplit} skipped={skipped} capture={split => command('capture-selection', { split, fresh: !split }, 'Читаем выделение…')} highlight={nodeId => command('highlight', { nodeId })} save={(name, items, setId) => command('save-set', { name, items, setId }, 'Сохраняем набор…')} cancel={() => { setView(importReturn.current); setDraft([]); setError(''); }} reportError={setError} />}
       {view === 'generate' && activeSet && <><div className="set-context"><button className="back" disabled={Boolean(busy)} onClick={() => setView('home')}><Icon name="arrow" />Источники</button><span className="meta">{activeSet.name}</span></div><Composer key={activeId} items={currentItems} selected={selected.filter(id => currentItems.some(i => i.id === id))} toggle={toggle} busy={Boolean(busy)} keyReady={keyReady} selectByText={selectText} create={options => command('create', { options }, 'Создаём варианты…')} exportSvg={() => command('export', {}, 'Экспортируем SVG…')} palettes={availablePalettes} paletteId={paletteId} selectPalette={id => { setPaletteId(id); if (id !== 'draft') setTransientPalette(null); }} managePalettes={openPalettes} generation={generation} finish={() => post('close')} scene={scene} /></>}
       {view === 'set' && activeSet && <>
         {editing ? <ItemEditor key={editing.id} item={editing} busy={Boolean(busy)} cancel={() => setEditing(null)} save={(name, description, variants) => command('update-item', { id: editing.id, name, description, variants }, 'Сохраняем карточку…')} /> : <>
@@ -111,7 +129,7 @@ function App() {
             <label className="search-label"><span className="with-icon"><Icon name="search" />Поиск</span><input placeholder="Название или описание" value={search} onChange={e => setSearch(e.target.value)} /></label>
             {mergeIds.length > 1 && <section className="merge-panel"><label>Общее название элемента<input value={mergeName} onChange={e => setMergeName(e.target.value)} maxLength={100} placeholder="Например, лампа" /></label><button disabled={!mergeName.trim() || Boolean(busy)} className="with-icon" onClick={() => command('merge-items', { ids: mergeIds, name: mergeName }, 'Объединяем варианты…')}><Icon name="layers" />Объединить как варианты</button><p className="hint">Графика сохранится. Выбранные карточки станут версиями одного элемента.</p></section>}
             <div className="library-grid">{currentItems.filter(i => (i.name + ' ' + i.description).toLowerCase().includes(search.toLowerCase())).map(item => <article key={item.id} className="library-card"><label className="card-check"><input type="checkbox" aria-label={'Объединить ' + item.name} checked={mergeIds.includes(item.id)} onChange={() => setMergeIds(current => current.includes(item.id) ? current.filter(id => id !== item.id) : [...current, item.id])} /></label><button className="preview-button" onClick={() => setEditing(item)} aria-label={'Открыть элемент ' + item.name}><Preview svg={item.preview} /><strong>{item.name}</strong></button><span className="hint">{item.variants.length > 1 ? `Вариантов: ${item.variants.length}` : 'Один вариант'}</span><button className="link-button" onClick={() => setEditing(item)}><Icon name="edit" />Настроить элемент</button></article>)}</div>
-            <p className="hint">Чтобы объединить версии одного предмета, отметьте две или более карточки.</p><div className="action-row"><button className="with-icon" disabled={Boolean(busy)} onClick={() => command('export-set', { setId: activeId }, 'Экспортируем набор…')}><Icon name="download" />Экспорт набора</button><button className="primary with-icon" disabled={!currentItems.length} onClick={() => openSet(activeId, true)}><Icon name="composition" />Создать композицию</button></div>
+            <p className="hint">Чтобы объединить версии одного предмета, отметьте две или более карточки.</p><div className="action-row"><button className="with-icon" disabled={Boolean(busy)} onClick={() => command('export-set', { setId: activeId }, 'Экспортируем набор…')}><Icon name="download" />Экспорт набора</button><button className="primary with-icon" disabled={!currentItems.length} onClick={() => { setView('home'); setPromptResult([]); }}><Icon name="composition" />Создать композицию</button></div>
           </>
         </>}
       </>}
