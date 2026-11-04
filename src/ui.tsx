@@ -32,6 +32,7 @@ function App() {
   const [keyReady, setKeyReady] = useState(false), [settings, setSettings] = useState(false);
   const [aiConfig, setAIConfig] = useState<AIConfig>(aiPresets.deepseek);
   const resumeOnIdle = useRef(false);
+  const [modelCatalog, setModelCatalog] = useState<string[]>([]), savedModels = useRef<string[]>([]);
   const modelRequests = useRef(new Map<string, { resolve: (models: string[]) => void; reject: (error: Error) => void }>()), modelRequestId = useRef(0);
   const [scene, setScene] = useState('');
   const [generation, setGeneration] = useState(0);
@@ -71,7 +72,7 @@ function App() {
       if (m.type === 'scene') { setScene(`Создано вариантов: ${m.variants} · ${m.width} × ${m.height}`); setGeneration(value => value + 1); setNotice(m.warnings?.join('. ') || ''); }
       if (m.type === 'layer-order') setScene(`Упорядочено композиций: ${m.count}. Предметы расположены по глубине сцены.`);
       if (m.type === 'notice') setNotice(m.message);
-      if (m.type === 'ai-configured') { setAIConfig(m.config); setKeyReady(m.ready); setSettings(false); setNotice('Подключение AI сохранено'); if (m.ready && keyRequested.current && pendingInput.current) { keyRequested.current = false; resumeOnIdle.current = true; } }
+      if (m.type === 'ai-configured') { setModelCatalog(savedModels.current); setAIConfig(m.config); setKeyReady(m.ready); setSettings(false); setNotice('Подключение AI сохранено'); if (m.ready && keyRequested.current && pendingInput.current) { keyRequested.current = false; resumeOnIdle.current = true; } }
       if (m.type === 'download') {
         const url = URL.createObjectURL(new Blob([m.data], { type: m.mime }));
         const a = document.createElement('a'); a.href = url; a.download = m.name; a.click();
@@ -113,7 +114,7 @@ function App() {
   return <div className="app">
     <header><div><span className="brand">Mixer</span><span className="version">Композиции из вашей графики</span></div><button className="connection icon-button" disabled={Boolean(busy)} aria-label="Настройки AI" title={keyReady ? 'Модель: ' + aiConfig.model : 'Настройки AI'} onClick={() => setSettings(v => !v)}><Icon name="settings" /></button></header>
     {paletteOpen && <PaletteManager palettes={availablePalettes} selected={paletteId === 'auto' ? 'purple' : paletteId} items={previewItems} scene={null} busy={Boolean(busy)} error={error} select={usePalette} apply={usePalette} save={palette => command('save-palette', { palette }, 'Сохраняем палитру…')} exportPalette={id => command('export-palette', { id }, 'Экспортируем палитру…')} close={() => setPaletteOpen(false)} />}
-    <Panel open={settings} title="Подключение AI" close={() => { pendingInput.current = null; keyRequested.current = false; resumeOnIdle.current = false; setSettings(false); }}>{settings && <AISettings loadModels={loadModels} current={aiConfig} ready={keyReady} busy={Boolean(busy)} error={error} save={config => command('configure-ai', { config }, 'Сохраняем подключение…')} />}</Panel>
+    <Panel open={settings} title="Подключение AI" close={() => { pendingInput.current = null; keyRequested.current = false; resumeOnIdle.current = false; setSettings(false); }}>{settings && <AISettings initialModels={modelCatalog} loadModels={loadModels} current={aiConfig} ready={keyReady} busy={Boolean(busy)} error={error} save={(config, models) => { savedModels.current = models; command('configure-ai', { config }, 'Сохраняем подключение…'); }} />}</Panel>
     <main ref={main} className={view === 'generate' ? 'compose-view' : undefined}>
       {error && <div role="alert" className="message error">{error}</div>}
       {notice && <div role="status" className="message">{notice}</div>}

@@ -29,7 +29,7 @@ try {
   await page.getByRole('combobox', { name: 'Провайдер', exact: true }).click();
   await page.getByRole('option', { name: 'OpenAI', exact: true }).click();
   assert.equal(await page.getByRole('textbox', { name: 'Базовый адрес API', exact: true }).inputValue(), 'https://api.openai.com/v1');
-  await page.getByRole('textbox', { name: 'Модель', exact: true }).fill('chosen-chat-model');
+  await page.getByRole('combobox', { name: 'Модель', exact: true }).fill('chosen-chat-model');
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-openai-key');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor({ state: 'hidden' });
@@ -43,7 +43,7 @@ try {
   await page.getByRole('button', { name: 'Настройки AI', exact: true }).click();
   const key = page.getByRole('textbox', { name: 'API-ключ', exact: true });
   assert.equal(await key.inputValue(), '');
-  await page.getByRole('textbox', { name: 'Модель', exact: true }).fill('another-chat-model');
+  await page.getByRole('combobox', { name: 'Модель', exact: true }).fill('another-chat-model');
   assert.equal(await page.getByRole('button', { name: 'Сохранить', exact: true }).isEnabled(), true);
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor({ state: 'hidden' });
@@ -58,7 +58,7 @@ try {
   assert.equal(await key.inputValue(), '');
   assert.equal(await page.getByRole('button', { name: 'Сохранить', exact: true }).isDisabled(), true);
   await page.getByRole('textbox', { name: 'Базовый адрес API', exact: true }).fill('https://proxy.example/v1/chat/completions');
-  await page.getByRole('textbox', { name: 'Модель', exact: true }).fill('vendor/custom-model');
+  await page.getByRole('combobox', { name: 'Модель', exact: true }).fill('vendor/custom-model');
   await key.fill('test-custom-key');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor({ state: 'hidden' });
@@ -69,7 +69,7 @@ try {
   await page.reload();
   await page.getByRole('button', { name: 'Настройки AI', exact: true }).click();
   assert.equal(await page.getByRole('textbox', { name: 'Базовый адрес API', exact: true }).inputValue(), 'https://proxy.example/v1');
-  assert.equal(await page.getByRole('textbox', { name: 'Модель', exact: true }).inputValue(), 'vendor/custom-model');
+  assert.equal(await page.getByRole('combobox', { name: 'Модель', exact: true }).inputValue(), 'vendor/custom-model');
   assert.equal(await key.inputValue(), '');
   assert.equal(await page.getByRole('button', { name: 'Сохранить', exact: true }).isDisabled(), true);
   const persisted = await page.evaluate(() => localStorage.getItem('mixer-ai-config-v1'));
