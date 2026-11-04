@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { aiPresets, configureAI, publicAI, requestAIJSON, validateAIConfig } from '../src/ai';
+import { aiPresets, configureAI, listAIModels, publicAI, requestAIJSON, validateAIConfig } from '../src/ai';
 
 test('OpenAI использует выбранную модель, свой endpoint и параметры Chat Completions', async () => {
   const connection = configureAI({ ...aiPresets.openai, model: 'chosen-chat-model', apiKey: 'any-project-key' });
@@ -12,6 +12,32 @@ test('OpenAI использует выбранную модель, свой endp
   expect(payload).toMatchObject({ model: 'chosen-chat-model', max_completion_tokens: 1200, response_format: { type: 'json_object' } });
   expect(payload).not.toHaveProperty('thinking'); expect(payload).not.toHaveProperty('max_tokens');
   expect(headers.Authorization).toBe('Bearer any-project-key'); expect(result).toEqual({ ok: true });
+});
+
+test('единый GET /models работает без заранее известного ID модели и использует ключ выбранного сервиса', async () => {
+  const captured: any[] = [];
+  const previous = configureAI({ ...aiPresets.deepseek, apiKey: 'saved-key' });
+  for (const config of [{ ...aiPresets.openai, apiKey: 'openai-key' }, { provider: 'custom' as const, baseUrl: 'https://proxy.example/v1', apiKey: 'proxy-key' }, { ...aiPresets.deepseek, apiKey: '' }]) {
+    const models = await listAIModels({ ...config, model: '' }, previous, async (url, options) => {
+      captured.push({ url, options });
+      return new Response(JSON.stringify({ data: [{ id: 'z-model' }, { id: 'a-model' }, { id: 'a-model' }, { noId: true }] }));
+    });
+    expect(models).toEqual(['a-model', 'z-model']);
+  }
+  expect(captured.map(c => c.url)).toEqual(['https://api.openai.com/v1/models', 'https://proxy.example/v1/models', 'https://api.deepseek.com/models']);
+  expect(captured.map(c => c.options.headers.Authorization)).toEqual(['Bearer openai-key', 'Bearer proxy-key', 'Bearer saved-key']);
+  expect(captured.every(c => c.options.method === 'GET' && !c.options.body)).toBe(true);
+});
+
+test('опрос моделей не переносит ключ между сервисами и не подменяет неподдержанный ответ', async () => {
+  const previous = configureAI({ ...aiPresets.deepseek, apiKey: 'saved-key' }); let calls = 0;
+  await expect(listAIModels({ ...aiPresets.openai, model: '' }, previous, async () => { calls++; return new Response('{}'); })).rejects.toThrow();
+  expect(calls).toBe(0);
+  for (const reply of [new Response('', { status: 404 }), new Response('{"models":[]}'), new Response('{"data":[]}'), new Response('not json')]) {
+    await expect(listAIModels({ ...aiPresets.deepseek }, previous, async () => reply)).rejects.toThrow('вручную');
+  }
+  await expect(listAIModels({ ...aiPresets.deepseek }, previous, async () => { throw new Error('Network failure'); })).rejects.toThrow('вручную');
+  expect(previous.model).toBe('deepseek-flash'); expect(previous.apiKey).toBe('saved-key');
 });
 
 test('совместимый endpoint принимает полный путь, а DeepSeek сохраняет свои параметры', async () => {

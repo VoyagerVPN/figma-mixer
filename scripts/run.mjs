@@ -12,6 +12,7 @@ const targets = {
   test: [resolve(root, 'node_modules/vitest/vitest.mjs'), 'run', ...process.argv.slice(3), '--pool=threads'],
   'ui-test': [resolve(root, 'scripts/test-ui.mjs')],
   'palette-test': [resolve(root, 'scripts/test-palettes.mjs')],
+  'ai-discovery-test': [resolve(root, 'scripts/test-ai-discovery.mjs')],
   'ai-settings-test': [resolve(root, 'scripts/test-ai-settings.mjs')],
   'ai-test': [resolve(root, 'scripts/test-ai.mjs')],
   'flow-test': [resolve(root, 'scripts/test-flow.mjs')],

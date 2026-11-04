@@ -1,0 +1,87 @@
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { createServer } from 'node:http';
+import assert from 'node:assert/strict';
+import { build } from 'esbuild';
+
+const root = resolve(import.meta.dirname, '..'), output = resolve(root, '.cache/qa/ai-discovery-browser'), temporary = resolve(root, '.cache/playwright/tmp');
+await Promise.all([output, temporary].map(path => mkdir(path, { recursive: true })));
+process.env.TEMP = temporary; process.env.TMP = temporary;
+process.env.PLAYWRIGHT_BROWSERS_PATH = resolve(root, '.cache/playwright/browsers');
+await build({ entryPoints: [resolve(root, 'tests/palettes-fixture.ts')], outfile: resolve(output, 'app.js'), bundle: true, format: 'iife', target: 'chrome100' });
+await writeFile(resolve(output, 'index.html'), '<!doctype html><html lang="ru"><meta charset="utf-8"><link rel="stylesheet" href="/app.css"><div id="root"></div><script src="/app.js"></script></html>');
+const server = createServer(async (request, response) => {
+  const file = request.url === '/app.js' ? 'app.js' : request.url === '/app.css' ? 'app.css' : 'index.html';
+  response.setHeader('Content-Type', file.endsWith('.js') ? 'text/javascript' : file.endsWith('.css') ? 'text/css' : 'text/html');
+  response.end(await readFile(resolve(output, file)));
+});
+await new Promise(done => server.listen(0, '127.0.0.1', done));
+const { chromium } = await import('playwright');
+const browser = await chromium.launch({ channel: 'msedge', headless: true, env: { ...process.env } });
+const page = await browser.newPage({ viewport: { width: 520, height: 840 } }), errors = [];
+page.setDefaultTimeout(4000); page.on('pageerror', error => errors.push(error.message));
+const base = `http://127.0.0.1:${server.address().port}`;
+try {
+  await page.goto(base);
+  await page.getByRole('button', { name: 'Настройки AI', exact: true }).click();
+  await page.getByRole('button', { name: 'Что такое модель?', exact: true }).click();
+  await page.getByRole('tooltip').filter({ hasText: 'версия нейросети' }).waitFor();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).isVisible(), true);
+  await page.setViewportSize({ width: 400, height: 700 });
+  for (const label of ['Что такое базовый адрес API?', 'Что такое API-ключ?']) {
+    await page.getByRole('button', { name: label, exact: true }).click();
+    const popup = page.getByRole('tooltip'); await popup.waitFor();
+    const bounds = await popup.boundingBox(); assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 400);
+    await page.keyboard.press('Escape');
+  }
+  await page.getByRole('button', { name: 'Что такое модель?', exact: true }).click();
+  await page.screenshot({ path: resolve(output, 'help.png') });
+  await page.keyboard.press('Escape');
+  console.log('OK подсказки трёх полей, Escape сохраняет диалог и попапы помещаются в 400 px');
+  await page.getByRole('textbox', { name: 'Модель', exact: true }).fill('');
+  await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
+  await page.getByRole('button', { name: 'Получить список моделей', exact: true }).click();
+  await page.getByRole('group', { name: 'Модели API', exact: true }).waitFor();
+  await page.screenshot({ path: resolve(output, 'model-list.png') });
+  assert.equal(await page.evaluate(() => localStorage.getItem('mixer-ai-config-v1')), null);
+  await page.getByRole('textbox', { name: 'Поиск модели', exact: true }).fill('beta');
+  await page.getByRole('button', { name: 'model-beta', exact: true }).click();
+  assert.equal(await page.getByRole('textbox', { name: 'Модель', exact: true }).inputValue(), 'model-beta');
+  assert.equal(await page.getByRole('group', { name: 'Модели API', exact: true }).count(), 0);
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor({ state: 'hidden' });
+  console.log('OK список без заранее заданной модели → поиск → выбор → отдельное сохранение');
+  await page.goto(base + '?slow-model-list');
+  await page.getByRole('button', { name: 'Настройки AI', exact: true }).click();
+  await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('first-key');
+  await page.getByRole('button', { name: 'Получить список моделей', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Провайдер', exact: true }).click();
+  await page.getByRole('option', { name: 'OpenAI', exact: true }).click();
+  await page.waitForFunction(() => !!document.documentElement.dataset.modelsDone);
+  assert.equal(await page.getByRole('group', { name: 'Модели API', exact: true }).count(), 0);
+  assert.equal(await page.getByRole('textbox', { name: 'Модель', exact: true }).inputValue(), 'gpt-4.1-mini');
+  assert.equal(await page.getByRole('textbox', { name: 'API-ключ', exact: true }).inputValue(), '');
+  await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('second-key');
+  await page.getByRole('button', { name: 'Получить список моделей', exact: true }).click();
+  await page.getByRole('group', { name: 'Модели API', exact: true }).waitFor();
+  const request = JSON.parse(await page.locator('html').getAttribute('data-models-request'));
+  assert.deepEqual(request, { url: 'https://api.openai.com/v1/models', method: 'GET' });
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).isVisible(), true);
+  console.log('OK смена сервиса отбрасывает запоздалый список; повторный запрос использует новый адрес');
+
+  await page.goto(base + '?model-list-error');
+  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Командная работа');
+  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor();
+  await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
+  await page.getByRole('button', { name: 'Получить список моделей', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: 'вручную' }).waitFor();
+  await page.getByRole('textbox', { name: 'Модель', exact: true }).fill('manual-chat-model');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Командная работа');
+  console.log('OK недоступный список оставляет ручной ввод и не отменяет исходную генерацию');
+  assert.deepEqual(errors, []);
+} finally { await browser.close(); await new Promise(done => server.close(done)); }

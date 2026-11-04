@@ -12,25 +12,54 @@ export class AIKeyRequired extends Error { constructor() { super('Настрой
 
 export function publicAI(input: AIConfig): AIConfig { return { provider: input.provider, baseUrl: input.baseUrl, model: input.model }; }
 
-export function validateAIConfig(input: AIConfig): AIConfig {
+export function validateAITarget(input: Pick<AIConfig, 'provider' | 'baseUrl'>) {
   if (!input || !['deepseek', 'openai', 'custom'].includes(input.provider)) throw new Error('Выберите провайдера AI');
   const baseUrl = String(input.baseUrl || '').trim().replace(/\/+$/, '').replace(/\/chat\/completions$/, '');
   // Проверяем базовый адрес без зависимости от браузерных API.
   const address = /^(https?):\/\/(\[[a-f\d:]+\]|[a-z\d.-]+)(?::(\d{1,5}))?(\/[a-z\d._~!$&'()*+,;=:@%/\-]*)?$/i.exec(baseUrl);
   if (!address || (address[3] && (+address[3] < 1 || +address[3] > 65535))) throw new Error('Укажите HTTP(S) адрес API без ключа, параметров и фрагмента');
   if (input.provider !== 'custom' && baseUrl !== aiPresets[input.provider].baseUrl) throw new Error('Для собственного адреса выберите OpenAI-совместимый сервис');
+  return { provider: input.provider, baseUrl };
+}
+
+export function validateAIConfig(input: AIConfig): AIConfig {
+  const target = validateAITarget(input);
   const model = String(input.model || '').trim();
   if (!model || model.length > 200 || /[\s\x00-\x1f]/.test(model)) throw new Error('Укажите корректный ID модели');
-  return { provider: input.provider, baseUrl, model };
+  return { ...target, model };
+}
+
+function connectionKey(input: { apiKey?: string }, target: Pick<AIConfig, 'provider' | 'baseUrl'>, previous?: AIConnection) {
+  const sameTarget = previous?.provider === target.provider && previous.baseUrl === target.baseUrl;
+  const apiKey = String(input.apiKey || '').trim() || (sameTarget ? previous.apiKey : '');
+  if (!apiKey) throw new AIKeyRequired();
+  if (/\s/.test(apiKey)) throw new Error('Ключ должен быть одной строкой без пробелов');
+  return apiKey;
 }
 
 export function configureAI(input: AIConfig & { apiKey?: string }, previous?: AIConnection): AIConnection {
   const config = validateAIConfig(input);
-  const sameTarget = previous?.provider === config.provider && previous.baseUrl === config.baseUrl;
-  const apiKey = String(input.apiKey || '').trim() || (sameTarget ? previous.apiKey : '');
-  if (!apiKey) throw new AIKeyRequired();
-  if (/\s/.test(apiKey)) throw new Error('Ключ должен быть одной строкой без пробелов');
-  return { ...config, apiKey };
+  return { ...config, apiKey: connectionKey(input, config, previous) };
+}
+
+export async function listAIModels(input: AIConfig & { apiKey?: string }, previous?: AIConnection, request: typeof fetch = fetch): Promise<string[]> {
+  const target = validateAITarget(input), key = connectionKey(input, target, previous);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const operation = async () => {
+    let response: Response;
+    try { response = await request(target.baseUrl + '/models', { method: 'GET', headers: { Authorization: `Bearer ${key}` } }); }
+    catch { throw new Error('Не удалось связаться с API. Проверьте адрес или введите ID модели вручную.'); }
+    if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? 'Проверьте ключ и право на просмотр моделей. ID модели можно ввести вручную.' : 'Список моделей недоступен по этому адресу. Проверьте адрес или введите ID модели вручную.');
+    let data;
+    try { data = await response.json(); } catch { throw new Error('Сервис не вернул стандартный список моделей. Введите ID вручную.'); }
+    if (!Array.isArray(data?.data)) throw new Error('Сервис не вернул стандартный список моделей. Введите ID вручную.');
+    const ids: string[] = data.data.map((model: any) => model?.id).filter((id: unknown): id is string => typeof id === 'string' && id.length > 0 && id.length <= 200 && !/[\s\x00-\x1f]/.test(id));
+    const models = [...new Set(ids)].sort();
+    if (!models.length) throw new Error('Сервис вернул пустой список моделей. Введите ID вручную.');
+    return models;
+  };
+  try { return await Promise.race([operation(), new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Список моделей не получен за 15 секунд. ID можно ввести вручную.')), 15000); })]); }
+  finally { if (timer) clearTimeout(timer); }
 }
 
 export async function requestAIJSON(query: string, system: string, maxTokens: number, connection: AIConnection, request: typeof fetch = fetch) {

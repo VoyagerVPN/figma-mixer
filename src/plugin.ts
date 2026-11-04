@@ -1,6 +1,6 @@
 import { Library } from './library';
 import { SceneRenderer } from './scene';
-import { AIKeyRequired, aiPresets, configureAI, publicAI, selectWithAI, validateAIConfig, type AIConnection } from './ai';
+import { AIKeyRequired, aiPresets, configureAI, listAIModels, publicAI, selectWithAI, validateAIConfig, type AIConnection } from './ai';
 import { ArtworkChannel } from './artwork-channel';
 import { PaletteStore } from './palette-store';
 import { generateCompositions } from './generation';
@@ -17,6 +17,11 @@ const catalog = () => send({ type: 'catalog', sets: library.sets, items: library
 figma.showUI(__html__, { width: 520, height: 840, themeColors: true });
 
 figma.ui.onmessage = async message => {
+  if (message.type === 'list-ai-models') {
+    try { send({ type: 'ai-models', requestId: message.requestId, models: await listAIModels(message.config, connection) }); }
+    catch (error) { send({ type: 'ai-models', requestId: message.requestId, error: error instanceof Error ? error.message : 'Не удалось получить список моделей' }); }
+    return;
+  }
   if (message.type === 'close' && !busy) { figma.closePlugin(); return; }
   if (message.type === 'artwork-analysis') { artwork.receive(message); return; }
   if (message.type === 'ready') { if (initialized) { catalog(); if (!busy) send({ type: 'idle' }); } return; }

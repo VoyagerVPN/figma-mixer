@@ -32,6 +32,7 @@ function App() {
   const [keyReady, setKeyReady] = useState(false), [settings, setSettings] = useState(false);
   const [aiConfig, setAIConfig] = useState<AIConfig>(aiPresets.deepseek);
   const resumeOnIdle = useRef(false);
+  const modelRequests = useRef(new Map<string, { resolve: (models: string[]) => void; reject: (error: Error) => void }>()), modelRequestId = useRef(0);
   const [scene, setScene] = useState('');
   const [generation, setGeneration] = useState(0);
   const [palettes, setPalettes] = useState<NamedPalette[]>(builtInPalettes), [paletteId, setPaletteId] = useState('auto'), [paletteOpen, setPaletteOpen] = useState(false);
@@ -50,6 +51,7 @@ function App() {
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const m = event.data?.pluginMessage; if (!m) return;
+      if (m.type === 'ai-models') { const pending = modelRequests.current.get(m.requestId); if (pending) { modelRequests.current.delete(m.requestId); if (m.error) pending.reject(new Error(m.error)); else pending.resolve(m.models); } return; }
       if (m.type === 'analyze-artwork') {
         void analyzeArtwork(m.samples).then(profiles => post('artwork-analysis', { requestId: m.requestId, profiles }))
           .catch(error => post('artwork-analysis', { requestId: m.requestId, error: error instanceof Error ? error.message : 'Не удалось проанализировать графику' }));
@@ -82,6 +84,7 @@ function App() {
 
   function usePalette(palette: NamedPalette) { setTransientPalette(palette.id === 'draft' ? palette : null); setPaletteId(palette.id); setPaletteOpen(false); }
   function openPalettes() { setPaletteOpen(true); setError(''); }
+  function loadModels(config: AIConfig & { apiKey: string }) { return new Promise<string[]>((resolve, reject) => { const requestId = 'models-' + ++modelRequestId.current; modelRequests.current.set(requestId, { resolve, reject }); post('list-ai-models', { requestId, config }); }); }
   function choosePromptPalette(id: string) { if (id === '__manage__') { if (!(activeId || '') && !currentItems.length) { importDestination.current = 'home'; command('starter', {}, 'Готовим библиотеку для предпросмотра…'); } openPalettes(); return; } setPaletteId(id); if (id !== 'draft') setTransientPalette(null); }
   function generatePrompt() {
     const [width, height] = promptDraft.format.split('x').map(Number);
@@ -110,7 +113,7 @@ function App() {
   return <div className="app">
     <header><div><span className="brand">Mixer</span><span className="version">Композиции из вашей графики</span></div><button className="connection icon-button" disabled={Boolean(busy)} aria-label="Настройки AI" title={keyReady ? 'Модель: ' + aiConfig.model : 'Настройки AI'} onClick={() => setSettings(v => !v)}><Icon name="settings" /></button></header>
     {paletteOpen && <PaletteManager palettes={availablePalettes} selected={paletteId === 'auto' ? 'purple' : paletteId} items={previewItems} scene={null} busy={Boolean(busy)} error={error} select={usePalette} apply={usePalette} save={palette => command('save-palette', { palette }, 'Сохраняем палитру…')} exportPalette={id => command('export-palette', { id }, 'Экспортируем палитру…')} close={() => setPaletteOpen(false)} />}
-    <Panel open={settings} title="Подключение AI" close={() => { pendingInput.current = null; keyRequested.current = false; resumeOnIdle.current = false; setSettings(false); }}>{settings && <AISettings current={aiConfig} ready={keyReady} busy={Boolean(busy)} error={error} save={config => command('configure-ai', { config }, 'Сохраняем подключение…')} />}</Panel>
+    <Panel open={settings} title="Подключение AI" close={() => { pendingInput.current = null; keyRequested.current = false; resumeOnIdle.current = false; setSettings(false); }}>{settings && <AISettings loadModels={loadModels} current={aiConfig} ready={keyReady} busy={Boolean(busy)} error={error} save={config => command('configure-ai', { config }, 'Сохраняем подключение…')} />}</Panel>
     <main ref={main} className={view === 'generate' ? 'compose-view' : undefined}>
       {error && <div role="alert" className="message error">{error}</div>}
       {notice && <div role="status" className="message">{notice}</div>}

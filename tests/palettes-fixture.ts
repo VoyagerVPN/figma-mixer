@@ -1,7 +1,7 @@
 import { PaletteStore } from '../src/palette-store';
 import library from '../src/assets/library.json';
 import { generateCompositions } from '../src/generation';
-import { AIKeyRequired, aiPresets, configureAI, publicAI, validateAIConfig } from '../src/ai';
+import { AIKeyRequired, aiPresets, configureAI, listAIModels, publicAI, validateAIConfig } from '../src/ai';
 import '../src/ui';
 
 // Граница Figma ↔ iframe: тот же документный store, транспорт заменён браузерными сообщениями.
@@ -30,6 +30,18 @@ window.addEventListener('message', event => {
   const m = event.data?.pluginMessage;
   if (m?.type === 'close') document.documentElement.dataset.closed = 'true';
   if (m?.type === 'ready') { catalog(); send({ type: 'idle' }); }
+  if (m?.type === 'list-ai-models') void (async () => {
+    try {
+      const models = await listAIModels(m.config, connection, async (url, options) => {
+        document.documentElement.dataset.modelsRequest = JSON.stringify({ url, method: options?.method });
+        if (new URLSearchParams(location.search).has('slow-model-list')) await new Promise(done => setTimeout(done, 200));
+        if (new URLSearchParams(location.search).has('model-list-error')) return new Response('', { status: 404 });
+        return new Response(JSON.stringify({ data: [{ id: 'model-alpha' }, { id: 'model-beta' }] }));
+      });
+      send({ type: 'ai-models', requestId: m.requestId, models });
+    } catch (error) { send({ type: 'ai-models', requestId: m.requestId, error: error instanceof Error ? error.message : String(error) }); }
+    finally { document.documentElement.dataset.modelsDone = m.requestId; }
+  })();
   if (m?.type === 'configure-ai') { try { connection = configureAI(m.config, connection); keyReady = Boolean(connection.apiKey); localStorage.setItem('mixer-ai-config-v1', JSON.stringify(publicAI(connection))); send({ type: 'ai-configured', config: publicAI(connection), ready: keyReady }); } catch (error) { send({ type: 'error', message: String(error) }); } send({ type: 'idle' }); }
   if (m?.type === 'generate-prompt') void (async () => {
     try {
