@@ -1,30 +1,31 @@
+import './palettes.css';
 import { useState } from 'react';
-import palettes from '../assets/palettes.json';
+import { builtInPalettes, type NamedPalette } from '../palettes';
 import type { Detail, Item, SceneOptions } from '../types';
 import { Preview } from './Preview';
 import { CustomSelect } from './CustomSelect';
-import { ColorPicker } from './ColorPicker';
+import { PaletteArtwork } from './PalettePreview';
 import { Panel } from './Panel';
 import { Icon } from './Icon';
 import { ChoiceGroup } from './ChoiceGroup';
 import { LayerEditor } from './LayerEditor';
 import { reconcileLayers, type LayerStack } from '../layers';
 
-const paletteNames: Record<string, string> = { purple: 'Сирень', peach: 'Персик', turquoise: 'Бирюза' };
 const layouts = [
   { id: 'balanced', icon: 'balanced', name: 'Баланс', description: 'Асимметричная группа с крупным акцентом' },
   { id: 'diagonal', icon: 'dynamic', name: 'Динамика', description: 'Несколько групп с диагональным движением' },
   { id: 'airy', icon: 'airy', name: 'Свободный центр', description: 'Предметы по краям, пространство в центре' }
 ] as const;
 
-export function Composer({ items, selected, toggle, busy, keyReady, selectByText, create, exportSvg, applyPalette, orderLayers, scene }: {
+export function Composer({ items, selected, toggle, busy, keyReady, selectByText, create, exportSvg, applyPalette, orderLayers, scene, palettes, paletteId, managePalettes, selectPalette }: {
   items: Item[]; selected: string[]; toggle: (id: string) => void; busy: boolean; keyReady: boolean;
   selectByText: (query: string) => void; create: (options: SceneOptions) => void; exportSvg: () => void;
-  applyPalette: (id: string) => void; scene: string; orderLayers: () => void;
+  applyPalette: (id: string, backgroundColor: string) => void; scene: string; orderLayers: () => void;
+  palettes: NamedPalette[]; paletteId: string; managePalettes: () => void; selectPalette: (id: string) => void;
 }) {
   const [query, setQuery] = useState(''), [format, setFormat] = useState('1200x630');
   const [count, setCount] = useState(3), [detail, setDetail] = useState<Detail>('default');
-  const [palette, setPalette] = useState('original'), [variant, setVariant] = useState(0);
+  const [variant, setVariant] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#D7CDF5'), [ground, setGround] = useState(false);
   const [style, setStyle] = useState<NonNullable<SceneOptions['style']>>('balanced');
   const [layers, setLayers] = useState<LayerStack>({ background: [], main: [], heroId: '', manual: false });
@@ -36,10 +37,12 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
   const hasDetail = chosen.some(i => i.variants.some(v => v.detail !== 'default'));
   const starter = items.every(i => i.origin === 'starter');
   const validCount = Number.isInteger(count) && count >= 1 && count <= 12;
+  const palette = palettes.find(p => p.id === paletteId) || builtInPalettes[0];
+  const validBackground = palette.background.includes(backgroundColor) ? backgroundColor : palette.background[0];
 
   function generate() {
     const [width, height] = format.split('x').map(Number);
-    create({ ids: selected, detail, palette, width, height, variant, count, background: validBackgrounds.length > 0, backgroundIds: validBackgrounds, heroId: validFocus, layerOrder: stack.manual ? [...stack.background, ...stack.main] : undefined, crop, style, title: query || 'Композиция', backgroundColor, ground });
+    create({ ids: selected, detail, palette: paletteId, paletteSnapshot: paletteId === 'draft' ? palette : undefined, width, height, variant, count, background: validBackgrounds.length > 0, backgroundIds: validBackgrounds, heroId: validFocus, layerOrder: stack.manual ? [...stack.background, ...stack.main] : undefined, crop, style, title: query || 'Композиция', backgroundColor: validBackground, ground });
     setVariant(v => v + count);
   }
 
@@ -49,7 +52,7 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
       <div className={`compose-items selected-items ${chosen.length > 3 ? 'compact-selection' : ''}`}>{chosen.map(item => {
         const picked = selected.includes(item.id), background = validBackgrounds.includes(item.id);
         return <button key={item.id} disabled={busy || (!picked && selected.length >= 8)} className={`compose-pick ${picked ? 'chosen' : ''} ${background ? 'background-item' : ''}`} aria-label={item.name} aria-pressed={picked} onClick={() => toggle(item.id)}>
-          <Preview svg={item.preview} /><span className="item-name">{item.name}{background && <span className="item-role">фон</span>}</span>{picked && <span className={`pick-mark ${validFocus === item.id ? 'focus-star' : ''}`} aria-label={validFocus === item.id ? 'Главный акцент' : undefined} data-focus={validFocus === item.id}><Icon name={validFocus === item.id ? 'star' : 'check'} /></span>}
+          <PaletteArtwork item={item} palette={paletteId === 'original' ? undefined : palette} /><span className="item-name">{item.name}{background && <span className="item-role">фон</span>}</span>{picked && <span className={`pick-mark ${validFocus === item.id ? 'focus-star' : ''}`} aria-label={validFocus === item.id ? 'Главный акцент' : undefined} data-focus={validFocus === item.id}><Icon name={validFocus === item.id ? 'star' : 'check'} /></span>}
         </button>;
       })}</div>
       {!chosen.length && <button className="empty-selection with-icon" onClick={() => setPanel('elements')}><Icon name="grid" />Выбрать элементы из набора</button>}
@@ -60,9 +63,10 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
       <p className="control-description">{layouts.find(layout => layout.id === style)!.description}</p>
     </section>
 
-    <section className="appearance-section"><h2>Оформление</h2><div className="appearance-controls">
-      {starter && <div className="palette-options" role="group" aria-label="Палитра объектов"><button title="Исходные цвета" aria-label="Исходные цвета" aria-pressed={palette === 'original'} onClick={() => setPalette('original')}><span className="original-swatch" /><span>Исходная</span></button>{palettes.map(p => <button key={p.id} aria-label={`Палитра ${paletteNames[p.id]}`} aria-pressed={palette === p.id} onClick={() => { setPalette(p.id); setBackgroundColor(p.background[0]); }}><span className="palette-swatches">{[p.background[0], ...p.object_accents.slice(0, 2)].map((color, i) => <i key={i} style={{ background: color }} />)}</span><span>{paletteNames[p.id]}</span></button>)}</div>}
-      <ColorPicker value={backgroundColor} onChange={setBackgroundColor} />
+    <section className="appearance-section"><div className="section-heading"><h2>Оформление</h2><button className="text-button" disabled={busy} onClick={managePalettes}><Icon name="palette" />Палитры</button></div><div className="appearance-controls">
+      <div className="palette-quick-list" role="group" aria-label="Палитра объектов">{[{ ...builtInPalettes[0], id: 'original', name: 'Исходная' }, ...palettes].map(p => <button key={p.id} className="palette-quick" aria-label={`Палитра ${p.name}`} aria-pressed={paletteId === p.id} disabled={busy} onClick={() => selectPalette(p.id)}><span className="palette-swatches">{[...p.background, ...p.object_accents].map((color, index) => <i key={index} style={{ background: color }} />)}</span><span>{p.name}</span></button>)}</div>
+      <div className="background-field"><span className="field-caption">Цвет фона</span><div className="background-colors" role="group" aria-label="Цвет фона">{palette.background.map((color, index) => <button key={index} aria-label={`Фон ${index + 1}: ${color}`} title={`Фон ${index + 1}: ${color}`} disabled={busy} aria-pressed={validBackground === color} onClick={() => setBackgroundColor(color)}><span className="color-chip" style={{ background: color }} />{validBackground === color && <Icon name="check" />}</button>)}<span className="meta">{validBackground}</span></div></div>
+      {!starter && <p className="hint">У импортированных предметов сохраняются исходные цвета. Палитра перекрашивает предметы стартового набора</p>}
     </div></section>
 
     <section className="output-section"><div className="output-controls"><CustomSelect label="Формат" value={format} onChange={setFormat} options={[{ value: '1200x630', label: 'Горизонтальный · 1200 × 630', icon: 'landscape' }, { value: '1080x1080', label: 'Квадрат · 1080 × 1080', icon: 'square' }, { value: '1080x1350', label: 'Вертикальный · 1080 × 1350', icon: 'portrait' }]} /><div className="quantity-field"><label htmlFor="variant-count">Вариантов</label><div className="quantity-control"><button aria-label="Меньше вариантов" disabled={busy || count <= 1} onClick={() => setCount(c => Math.max(1, (c || 1) - 1))}><Icon name="minus" /></button><input id="variant-count" aria-label="Количество вариантов" type="number" min={1} max={12} value={Number.isNaN(count) ? '' : count} onChange={e => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /><button aria-label="Больше вариантов" disabled={busy || count >= 12} onClick={() => setCount(c => Math.min(12, (c || 0) + 1))}><Icon name="plus" /></button></div></div></div></section>
@@ -74,7 +78,7 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
       {panel === 'elements' && <><div className="section-heading"><span className="meta">Выбрано {selected.length} из 8</span><button className="text-button" onClick={() => setPanel('description')}><Icon name="search" />Подобрать по описанию</button></div><div className="compose-items">{items.map(item => <button key={item.id} className={`compose-pick ${selected.includes(item.id) ? 'chosen' : ''}`} aria-label={item.name} aria-pressed={selected.includes(item.id)} disabled={!selected.includes(item.id) && selected.length >= 8} onClick={() => toggle(item.id)}><Preview svg={item.preview} /><span className="item-name">{item.name}</span>{selected.includes(item.id) && <span className="pick-mark"><Icon name="check" /></span>}</button>)}</div><button className="primary panel-done" onClick={() => setPanel(null)}>Готово</button></>}
       {panel === 'roles' && <LayerEditor items={chosen} value={stack} onChange={setLayers} close={() => setPanel(null)} busy={busy} />}
       {panel === 'description' && <><p className="panel-description">Перечислите названия или опишите тему композиции</p><label>Описание<textarea autoFocus value={query} maxLength={1500} onChange={e => setQuery(e.target.value)} placeholder="Рабочее место дизайнера" /></label><p className="hint">{keyReady ? 'Смысловой подбор через DeepSeek' : 'По названиям — локально, по смыслу — с подключённым DeepSeek'}</p><button className="primary panel-done with-icon" disabled={busy || !query.trim()} onClick={() => { setPanel(null); selectByText(query); }}><Icon name="search" />Подобрать элементы</button></>}
-      {panel === 'advanced' && <><ChoiceGroup label="Кадрирование" value={crop} onChange={setCrop} options={[{ value: 'accent', label: 'Выход за края кадра' }, { value: 'none', label: 'Силуэты целиком' }]} />{hasDetail && <><span className="field-label">Версия графики</span><div className="segmented" role="group" aria-label="Версия графики">{(['default', 'L', 'S'] as const).map(value => <button key={value} aria-pressed={detail === value} onClick={() => setDetail(value)}>{value === 'default' ? 'Исходная' : value}</button>)}</div><p className="hint">Готовые авторские версии L и S. Различия зависят от предмета</p></>}<label className="check setting-row"><span className="with-icon"><Icon name="plane" />Диагональная плоскость</span><input aria-label="Диагональная плоскость" type="checkbox" role="switch" checked={ground} onChange={e => setGround(e.target.checked)} /></label><div className="maintenance-actions"><button disabled={busy} onClick={() => { setPanel(null); orderLayers(); }}><Icon name="layers" />Упорядочить слои на холсте</button>{starter && palette !== 'original' && <button disabled={busy} onClick={() => { setPanel(null); applyPalette(palette); }}><Icon name="palette" />Применить палитру к выделенному</button>}</div><button className="primary panel-done" onClick={() => setPanel(null)}>Готово</button></>}
+      {panel === 'advanced' && <><ChoiceGroup label="Кадрирование" value={crop} onChange={setCrop} options={[{ value: 'accent', label: 'Выход за края кадра' }, { value: 'none', label: 'Силуэты целиком' }]} />{hasDetail && <><span className="field-label">Версия графики</span><div className="segmented" role="group" aria-label="Версия графики">{(['default', 'L', 'S'] as const).map(value => <button key={value} aria-pressed={detail === value} onClick={() => setDetail(value)}>{value === 'default' ? 'Исходная' : value}</button>)}</div><p className="hint">Готовые авторские версии L и S. Различия зависят от предмета</p></>}<label className="check setting-row"><span className="with-icon"><Icon name="plane" />Диагональная плоскость</span><input aria-label="Диагональная плоскость" type="checkbox" role="switch" checked={ground} onChange={e => setGround(e.target.checked)} /></label><div className="maintenance-actions"><button disabled={busy} onClick={() => { setPanel(null); orderLayers(); }}><Icon name="layers" />Упорядочить слои на холсте</button>{paletteId !== 'draft' && <button disabled={busy} onClick={() => { setPanel(null); applyPalette(paletteId, validBackground); }}><Icon name="palette" />Применить палитру к выделенному</button>}</div><button className="primary panel-done" onClick={() => setPanel(null)}>Готово</button></>}
     </Panel>
   </div>;
 }

@@ -1,0 +1,65 @@
+.palette-workspace{position:relative}
+.palette-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.palette-selector{display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-align:left}
+.palette-selector>span:nth-child(2){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palette-toolbar .palette-swatches,.palette-list-row .palette-swatches{display:flex;width:80px;height:22px;gap:0;overflow:hidden;border:1px solid var(--line);border-radius:4px;flex-shrink:0}
+.palette-toolbar .palette-swatches i,.palette-list-row .palette-swatches i{flex:1;height:100%;width:auto;border-radius:0}
+.palette-library{position:absolute;top:44px;left:0;right:0;z-index:6;max-height:256px;overflow:auto;background:white;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 20px #0002;padding:4px}
+.palette-list-row{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;text-align:left;border:0;background:transparent;padding:8px}
+.palette-list-row>span:nth-child(2){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palette-list-row[aria-pressed=true]{background:var(--raised)}
+.palette-menu{position:relative;margin:0;padding:0;border:0;flex-shrink:0}
+.palette-menu summary{display:flex;align-items:center;justify-content:center;width:36px;height:36px;min-height:36px;padding:8px;border-radius:8px}
+.palette-menu summary::after{display:none}
+.palette-menu summary:hover{background:var(--raised)}
+.palette-menu>div{position:absolute;top:40px;right:0;z-index:8;min-width:184px;padding:4px;border:1px solid var(--line);border-radius:8px;background:white;box-shadow:0 6px 20px #0002}
+.palette-menu button{display:flex;align-items:center;gap:8px;width:100%;border:0;text-align:left;padding:8px}
+.palette-composition{margin:12px 0 16px}
+.palette-composition>div{display:flex;align-items:center;justify-content:center;height:208px;overflow:hidden;background:var(--raised);border-radius:8px}
+.palette-composition img{display:block;width:100%;height:100%;object-fit:contain}
+.palette-composition figcaption{margin-top:6px;font-size:11px;color:var(--muted)}
+.palette-composition>div>span{font-size:12px;color:var(--muted)}
+.palette-pairs-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.palette-pairs-heading>span{font-size:11px;color:var(--muted)}
+.palette-pairs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 8px}
+.palette-pair{position:relative;display:flex;align-items:center;justify-content:space-around;gap:6px;min-height:56px;padding:6px 10px}
+.palette-pair[aria-expanded=true]{border-color:#77777f;background:var(--raised)}
+.palette-pair>span{display:flex;flex-direction:column;align-items:center;gap:3px}
+.palette-pair i{display:block;width:24px;height:20px;border:1px solid #0002;border-radius:3px}
+.palette-pair small{font-size:10px;font-variant-numeric:tabular-nums;color:var(--secondary)}
+.palette-pair>.ui-icon{color:var(--muted);width:12px;height:12px}
+.palette-pair>b{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);font-size:8px;font-weight:400;color:var(--muted)}
+.palette-picker{position:absolute;z-index:10;width:280px;padding:12px;border:1px solid #a8a8b0;border-radius:10px;background:white;box-shadow:0 8px 24px #0003}
+.palette-picker .color-picker{margin:0}
+.picker-done{display:flex;margin:8px 0 0 auto}
+.compact-picker .field-caption{display:none}
+.compact-picker .color-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 12px;padding:0;margin:0;border:0}
+.compact-picker .color-hex-label{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 4px}
+.compact-picker .color-hex-label>input{width:112px;margin:0;min-height:36px;height:36px}
+.compact-picker .color-sv{grid-column:1;grid-row:2/4;height:126px}
+.compact-picker .color-slider{margin:4px 0;font-size:10px}
+.compact-picker .color-slider>input[type=range]{margin-top:8px}
+.compact-picker .two-columns{display:flex;flex-direction:column;gap:4px;grid-column:2}
+.compact-picker .color-error{grid-column:1/-1}
+.palette-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:20px;padding-top:12px;border-top:1px solid var(--line)}
+.palette-footer .primary{min-width:136px}
+.palette-use-new{width:100%;justify-content:flex-end}
+.palette-name-form{margin-top:12px;padding-top:8px;border-top:1px solid var(--line)}
+.palette-name-form label{margin:0 0 12px}
+.palette-name-form>div{display:flex;justify-content:flex-end;gap:8px}
+.palette-workspace:has(.palette-name-form) .palette-composition>div{height:140px}
+.palette-quick-list{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-height:104px;overflow:auto;gap:6px}
+.palette-quick{display:flex;align-items:center;gap:8px;min-width:0;padding:8px;font-size:12px;text-align:left}
+.palette-quick[aria-pressed=true]{border-color:#77777f;background:var(--raised)}
+.palette-quick>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.palette-quick .palette-swatches{display:flex;gap:0;width:60px;height:20px;overflow:hidden;border:1px solid var(--line);border-radius:3px;flex-shrink:0}
+.palette-quick .palette-swatches i{flex:1;width:auto;height:100%;border-radius:0}
+.background-field{margin-top:12px}
+.background-field>.field-caption{display:block;font-size:12px;color:var(--secondary)}
+.background-colors{display:flex;align-items:center;gap:8px;margin-top:8px}
+.background-colors button{display:flex;align-items:center;justify-content:center;gap:4px;min-width:48px;height:36px;padding:4px 6px}
+.background-colors button[aria-pressed=true]{border-color:#77777f}
+.background-colors .color-chip{width:24px;height:24px}
+.background-colors .ui-icon{width:12px;height:12px}
+.color-edit::before{content:none}
+@media(max-width:420px){.palette-composition>div{height:166px}.palette-selector{gap:8px;font-size:12px;padding:8px}.palette-selector .palette-swatches{width:56px}.palette-footer>.text-button{font-size:11px}.palette-pair{padding:6px}.palette-footer .primary{min-width:112px}}

@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { LayerEditor } from '../src/ui/LayerEditor';
 import { Panel } from '../src/ui/Panel';
 import { Composer } from '../src/ui/Composer';
+import { builtInPalettes } from '../src/palettes';
 import type { Item, SceneOptions } from '../src/types';
 import type { LayerStack } from '../src/layers';
 import '../src/ui.css';
@@ -14,7 +15,7 @@ const items: Item[] = (large ? Array.from({ length: 60 }, (_, i) => ({ id: `item
 function Fixture() {
   const [state, setState] = useState<LayerStack>({ background: [], main: items.map(item => item.id), heroId: items[0].id, manual: false });
   const [open, setOpen] = useState(true), [selected, setSelected] = useState(items.map(item => item.id)), [payload, setPayload] = useState<SceneOptions | null>(null);
-  if (new URLSearchParams(location.search).has('composer')) return <div className="app"><main><Composer items={items} selected={selected} toggle={id => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])} busy={false} keyReady={false} selectByText={() => {}} create={setPayload} exportSvg={() => {}} applyPalette={() => {}} orderLayers={() => {}} scene="" /><output data-testid="payload">{JSON.stringify(payload)}</output></main></div>;
+  if (new URLSearchParams(location.search).has('composer')) return <div className="app"><main><Composer items={items} selected={selected} toggle={id => setSelected(current => current.includes(id) ? current.filter(value => value !== id) : [...current, id])} busy={false} keyReady={false} palettes={builtInPalettes} paletteId="original" selectPalette={() => {}} managePalettes={() => {}} selectByText={() => {}} create={setPayload} exportSvg={() => {}} applyPalette={() => {}} orderLayers={() => {}} scene="" /><output data-testid="payload">{JSON.stringify(payload)}</output></main></div>;
   return <div className="app"><Panel open={open} title="Слои композиции" close={() => setOpen(false)}><LayerEditor items={items} value={state} onChange={setState} close={() => setOpen(false)} /></Panel></div>;
 }
 createRoot(document.getElementById('root')!).render(<Fixture />);

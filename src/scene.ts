@@ -1,11 +1,10 @@
-import palettesData from './assets/palettes.json';
-import { backgroundPlaneColor, chooseSceneVariant, sceneBackgroundIds, sceneLayerOrder, validateSceneBatch } from './core';
+import { chooseSceneVariant, sceneBackgroundIds, sceneLayerOrder, validateSceneBatch } from './core';
+import { builtInPalettes, paletteBackground, paletteColor, resolvePalette, validatePalette } from './palettes';
 import { composeScene } from './composition';
 import type { ArtworkProfile } from './artwork';
 import type { ArtworkSample } from './artwork-channel';
 import type { Item, Palette, SceneOptions } from './types';
 
-const palettes = palettesData as Palette[];
 const color = (hex: string) => {
   const value = hex === 'white' ? '#ffffff' : hex;
   return { r: parseInt(value.slice(1, 3), 16) / 255, g: parseInt(value.slice(3, 5), 16) / 255, b: parseInt(value.slice(5, 7), 16) / 255 };
@@ -14,12 +13,6 @@ const hex = (c: RGB) => '#' + [c.r, c.g, c.b].map(v => Math.round(v * 255).toStr
 
 function recolor(node: SceneNode, palette: Palette, starter: boolean) {
   if (!starter) return;
-  const old = palettes[0];
-  const map = new Map<string, string>([
-    ...old.background.map((c, i) => [c.toLowerCase(), palette.background[i]] as [string, string]),
-    ...old.object_accents.map((c, i) => [c.toLowerCase(), palette.object_accents[i]] as [string, string]),
-    [old.ink.toLowerCase(), palette.ink], ['#ffffff', palette.paper]
-  ]);
   const paintNode = (child: SceneNode) => {
     const saved = child.getPluginData('mixer-original-paints');
     const original: Record<string, Paint[]> = saved ? JSON.parse(saved) : {};
@@ -28,7 +21,7 @@ function recolor(node: SceneNode, palette: Palette, starter: boolean) {
       const paints = original[prop] || (child as GeometryMixin)[prop];
       if (!Array.isArray(paints)) continue;
       original[prop] = paints;
-      (child as GeometryMixin)[prop] = paints.map((p: Paint) => p.type === 'SOLID' && map.has(hex(p.color)) ? { ...p, color: color(map.get(hex(p.color))!) } : p);
+      (child as GeometryMixin)[prop] = paints.map((p: Paint) => p.type === 'SOLID' ? { ...p, color: color(paletteColor(hex(p.color), palette)) } : p);
     }
     child.setPluginData('mixer-original-paints', JSON.stringify(original));
   };
@@ -38,11 +31,14 @@ function recolor(node: SceneNode, palette: Palette, starter: boolean) {
 
 export class SceneRenderer {
   current: FrameNode | null = null;
+  constructor(private readonly palettes: () => Palette[] = () => builtInPalettes) {}
 
   async create(options: SceneOptions, items: Item[], analyze: (samples: ArtworkSample[]) => Promise<ArtworkProfile[]>) {
     const count = validateSceneBatch(options.count ?? 1, options.width, options.height);
     if (!options.ids.length || options.ids.length > 8 || new Set(options.ids).size !== options.ids.length) throw new Error('Выберите от 1 до 8 разных элементов');
-    const palette = palettes.find(p => p.id === options.palette);
+    const palette = resolvePalette(options.palette, this.palettes(), options.paletteSnapshot);
+    const effectivePalette = palette || builtInPalettes[0];
+    const base = paletteBackground(effectivePalette, options.backgroundColor);
     const backgroundIds = sceneBackgroundIds(options);
     const picked = [];
     const warnings: string[] = [];
@@ -56,7 +52,6 @@ export class SceneRenderer {
       if (!source || source.removed) throw new Error(`Исходник «${item.name}» удалён из библиотеки`);
       picked.push({ item, variant: v, source });
     }
-    const base = /^#[0-9a-f]{6}$/i.test(options.backgroundColor || '') ? options.backgroundColor! : palette?.background[0] || '#D7CDF5';
     const samples: ArtworkSample[] = [];
     for (const p of picked) {
       // Анализируем именно выбранную версию и палитру, не меняя библиотечный исходник.
@@ -85,14 +80,14 @@ export class SceneRenderer {
         frame.resize(options.width, options.height); frame.x = origin + variant * (options.width + 100);
         frame.clipsContent = true;
         frame.fills = [{ type: 'SOLID', color: color(base) }];
-        frame.setPluginData('mixer-scene', JSON.stringify(options));
+        frame.setPluginData('mixer-scene', JSON.stringify({ ...options, backgroundColor: base, paletteSnapshot: palette }));
         if (options.ground !== false) {
           const plane = figma.createVector(); frame.appendChild(plane);
           plane.name = 'Диагональная плоскость'; plane.setPluginData('mixer-backdrop', 'ground');
           const w = options.width, h = options.height;
           plane.vectorPaths = [{ windingRule: 'NONZERO', data: `M 0 ${h * .30} L ${w * .45} 0 L ${w * .45} ${h * .30} Z` }];
           plane.x = w * .55; plane.y = h * .70;
-          plane.fills = [{ type: 'SOLID', color: color(backgroundPlaneColor(base, palettes)) }];
+          plane.fills = [{ type: 'SOLID', color: color(effectivePalette.background[(effectivePalette.background.indexOf(base) + 1) % 3]) }];
           plane.strokes = [];
         }
         const order = picked.map((_, index) => index).sort((a, b) => positions[a].layer - positions[b].layer);
@@ -117,6 +112,27 @@ export class SceneRenderer {
     while (node && node.type !== 'DOCUMENT' && !node.getPluginData('mixer-scene')) node = node.parent;
     if (!node || node.type !== 'FRAME') throw new Error('Выберите созданную композицию на холсте');
     return node;
+  }
+
+  async previewPalette() {
+    let source: FrameNode;
+    try { source = this.selected(); } catch { return null; }
+    const copy = source.clone();
+    try {
+      // Копия нужна только для SVG предпросмотра; исходная сцена остаётся нетронутой.
+      copy.x = source.x + source.width + 10000;
+      const original = builtInPalettes[0];
+      const options = JSON.parse(source.getPluginData('mixer-scene')) as SceneOptions;
+      const previous = options.paletteSnapshot || this.palettes().find(p => p.id === options.palette) || original;
+      const backgroundIndex = Math.max(0, previous.background.findIndex(value => value.toLowerCase() === options.backgroundColor?.toLowerCase()));
+      copy.fills = [{ type: 'SOLID', color: color(original.background[backgroundIndex]) }];
+      copy.children.forEach((node, index) => {
+        if (node.getPluginData('mixer-backdrop') === 'ground' && 'fills' in node) node.fills = [{ type: 'SOLID', color: color(original.background[(backgroundIndex + 1) % 3]) }];
+        else if (node.getPluginData('mixer-colorable') === '1') recolor(node, original, true);
+        else node.name = `mixer-protected-${index}`;
+      });
+      return { svg: await copy.exportAsync({ format: 'SVG_STRING', svgIdAttribute: true, svgOutlineText: true }), name: source.name, backgroundIndex };
+    } finally { copy.remove(); }
   }
 
   reorder(items: Item[]) {
@@ -152,16 +168,18 @@ export class SceneRenderer {
     return frames.size;
   }
 
-  applyPalette(paletteId: string) {
-    const frame = this.selected(), palette = palettes.find(p => p.id === paletteId);
-    if (!palette) throw new Error('Выберите палитру стартового набора');
-    frame.fills = [{ type: 'SOLID', color: color(palette.background[0]) }];
+  applyPalette(input: string | Palette, backgroundColor?: string) {
+    const paletteId = typeof input === 'string' ? input : 'draft';
+    const definition = typeof input === 'string' ? undefined : { id: 'draft', ...validatePalette(input) };
+    const palette = resolvePalette(paletteId, this.palettes(), definition) || builtInPalettes[0];
+    const base = paletteBackground(palette, backgroundColor), frame = this.selected();
+    frame.fills = [{ type: 'SOLID', color: color(base) }];
     frame.children.forEach(node => {
-      if (node.getPluginData('mixer-backdrop') === 'ground' && 'fills' in node) node.fills = [{ type: 'SOLID', color: color(palette.background[1]) }];
+      if (node.getPluginData('mixer-backdrop') === 'ground' && 'fills' in node) node.fills = [{ type: 'SOLID', color: color(palette.background[(palette.background.indexOf(base) + 1) % 3]) }];
       else recolor(node, palette, node.getPluginData('mixer-colorable') === '1');
     });
     const options = JSON.parse(frame.getPluginData('mixer-scene'));
-    frame.setPluginData('mixer-scene', JSON.stringify({ ...options, palette: paletteId, backgroundColor: palette.background[0] }));
+    frame.setPluginData('mixer-scene', JSON.stringify({ ...options, palette: paletteId, backgroundColor: base, paletteSnapshot: palette }));
     figma.commitUndo();
   }
 

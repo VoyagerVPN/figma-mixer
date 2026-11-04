@@ -10,7 +10,8 @@ const env = { ...process.env, npm_config_cache: cache, npm_config_audit: 'false'
 const targets = {
   install: [resolve(dirname(process.execPath), 'node_modules/npm/bin/npm-cli.js'), 'install', '--ignore-scripts'],
   test: [resolve(root, 'node_modules/vitest/vitest.mjs'), 'run', '--pool=threads'],
-  'ui-test': [resolve(root, 'scripts/test-dnd.mjs')],
+  'ui-test': [resolve(root, 'scripts/test-ui.mjs')],
+  'palette-test': [resolve(root, 'scripts/test-palettes.mjs')],
   typecheck: [resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit'],
   build: [resolve(root, 'scripts/build.mjs')],
   smoke: [resolve(root, 'scripts/deepseek-smoke.mjs')]
