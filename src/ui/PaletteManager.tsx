@@ -1,5 +1,5 @@
 import './palettes.css';
-import { useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { builtInPalettes, readPaletteFile, type NamedPalette, type PaletteDraft } from '../palettes';
 import type { Item, Palette } from '../types';
 import { Panel } from './Panel';
@@ -25,6 +25,36 @@ export function PaletteManager({ palettes, selected, items, scene, busy, error, 
   const [libraryOpen, setLibraryOpen] = useState(false), [picker, setPicker] = useState<{ index: number; left: number; top: number } | null>(null);
   const [valid, setValid] = useState(true), [localError, setLocalError] = useState(''), [naming, setNaming] = useState(false), [name, setName] = useState('');
   const input = useRef<HTMLInputElement>(null), workspace = useRef<HTMLDivElement>(null), buttons = useRef<(HTMLButtonElement | null)[]>([]);
+  const pickerElement = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!pickerElement.current || !workspace.current) return;
+    const body = workspace.current.closest('.panel-body');
+    const position = () => {
+      if (!pickerElement.current || !workspace.current || !body) return;
+      const popup = pickerElement.current.getBoundingClientRect(), area = workspace.current.getBoundingClientRect(), bounds = body.getBoundingClientRect();
+      const top = Math.max(bounds.top + 8, Math.min(popup.top, bounds.bottom - popup.height - 8));
+      const left = Math.max(bounds.left + 8, Math.min(popup.left, bounds.right - popup.width - 8));
+      if (Math.abs(top - popup.top) > .5 || Math.abs(left - popup.left) > .5) setPicker(previous => previous && { ...previous, top: top - area.top, left: left - area.left });
+    };
+    position(); window.addEventListener('resize', position); body?.addEventListener('scroll', position);
+    const observer = new ResizeObserver(position); observer.observe(pickerElement.current);
+    return () => { window.removeEventListener('resize', position); body?.removeEventListener('scroll', position); observer.disconnect(); };
+  }, [picker?.index]);
+  useEffect(() => {
+    if (!picker) return;
+    const dismiss = (event: MouseEvent) => {
+      if (!(event.target instanceof Node) || pickerElement.current?.contains(event.target) || buttons.current.some(button => button?.contains(event.target as Node))) return;
+      setPicker(null); setValid(true);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault(); event.stopPropagation();
+      setPicker(null); setValid(true); buttons.current[picker.index]?.focus();
+    };
+    document.addEventListener('click', dismiss);
+    document.addEventListener('keydown', escape, true);
+    return () => { document.removeEventListener('click', dismiss); document.removeEventListener('keydown', escape, true); };
+  }, [picker]);
   const current = palettes.find(p => p.id === active) || original;
   const palette: NamedPalette = draft ? { ...draft, id: 'draft', name: 'Изменённая палитра' } : { ...current, id: active };
   const targetColors = colors(palette);
@@ -65,8 +95,8 @@ export function PaletteManager({ palettes, selected, items, scene, busy, error, 
         <span><i style={{ background: source }} /><small>{source}</small></span><Icon name="chevron" /><span><i style={{ background: targetColors[index] }} /><small>{targetColors[index]}</small></span>{index < 3 && <b title="Разрешён для фона и предметов">Фон</b>}
       </button>)}</div>
       <p className="hint">Первые три цвета доступны для фона. Остальные используются только в предметах</p>
-      {picker && field && <div className="palette-picker" role="dialog" aria-label={`Замена цвета ${sources[picker.index]}`} style={{ left: picker.left, top: picker.top }}>
-        <ColorPicker key={picker.index} label="Новый цвет" inputLabel="замены" defaultOpen compact value={targetColors[picker.index]} onValidityChange={setValid} onChange={value => setDraft(previous => {
+      {picker && field && <div ref={pickerElement} className="palette-picker" role="dialog" aria-label={`Замена цвета ${sources[picker.index]}`} style={{ left: picker.left, top: picker.top }}>
+        <ColorPicker key={picker.index} label="Новый цвет" inputLabel="замены" value={targetColors[picker.index]} onValidityChange={setValid} onChange={value => setDraft(previous => {
           const base = previous || { ...current, id: undefined };
           return { ...base, [field.key]: typeof base[field.key] === 'string' ? value : (base[field.key] as string[]).map((color, index) => index === field.index ? value : color) };
         })} />
