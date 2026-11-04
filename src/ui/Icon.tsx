@@ -1,5 +1,5 @@
 const paths = {
-    close: 'm4 4 8 8M12 4l-8 8', settings: 'M6 3h4l.5 2 1.5 1 2-.5 1 3-1.5 1.5v2L11 14l-1.5-1H7L5.5 14 3 12l.5-2L2 8.5l1-3L5 6l1-1zM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0',
+    close: 'm4 4 8 8M12 4l-8 8', settings: 'M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915',
     arrow: 'M12 8H4m4-4L4 8l4 4', check: 'm3 8 3 3 7-7', plus: 'M8 3v10M3 8h10', minus: 'M3 8h10',
     star: 'm8 1.5 2 4.2 4.6.6-3.3 3.2.8 4.5L8 11.9l-4.1 2.1.8-4.5L1.4 6.3l4.6-.6z',
     up: 'M8 13V3m-4 4 4-4 4 4', down: 'M8 3v10m-4-4 4 4 4-4', grip: 'M5 3h.01M11 3h.01M5 8h.01M11 8h.01M5 13h.01M11 13h.01',
@@ -27,5 +27,7 @@ const paths = {
 export type IconName = keyof typeof paths;
 
 export function Icon({ name }: { name: IconName }) {
-  return <svg className="ui-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} /></svg>;
+  const settings = name === 'settings';
+  // Lucide Settings, лицензия ISC: licenses/lucide-settings.txt.
+  return <svg className="ui-icon" width="16" height="16" viewBox={settings ? "0 0 24 24" : "0 0 16 16"} fill="none" stroke="currentColor" strokeWidth={settings ? 2.25 : 1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} />{settings && <circle cx="12" cy="12" r="3" />}</svg>;
 }
