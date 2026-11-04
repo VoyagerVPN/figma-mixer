@@ -12,6 +12,7 @@ const targets = {
   test: [resolve(root, 'node_modules/vitest/vitest.mjs'), 'run', '--pool=threads'],
   'ui-test': [resolve(root, 'scripts/test-ui.mjs')],
   'palette-test': [resolve(root, 'scripts/test-palettes.mjs')],
+  'flow-test': [resolve(root, 'scripts/test-flow.mjs')],
   typecheck: [resolve(root, 'node_modules/typescript/bin/tsc'), '--noEmit'],
   build: [resolve(root, 'scripts/build.mjs')],
   smoke: [resolve(root, 'scripts/deepseek-smoke.mjs')]

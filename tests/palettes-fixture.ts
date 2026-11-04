@@ -17,11 +17,20 @@ const items = library.map(item => {
   return { ...item, setId: 'starter', preview: source.svg, variants: item.variants.map((v, i) => ({ ...v, nodeId: item.id + i, width: source.width, height: source.height })) };
 });
 const send = (message: unknown) => window.postMessage({ pluginMessage: message }, '*');
-let created = false;
-const catalog = () => send({ type: 'catalog', sets: [{ id: 'starter', name: 'Стартовый набор' }], items, palettes: store.all(), keyReady: false });
+let created = false, starterPresent = !new URLSearchParams(location.search).has('empty');
+let imported: typeof items = [], importedName = '';
+let createFailed = false;
+const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: 'Стартовый набор' }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady: false });
 window.addEventListener('message', event => {
   const m = event.data?.pluginMessage;
+  if (m?.type === 'close') document.documentElement.dataset.closed = 'true';
   if (m?.type === 'ready') catalog();
+  if (m?.type === 'starter') { starterPresent = true; catalog(); send({ type: 'open-set', setId: 'starter' }); send({ type: 'idle' }); }
+  if (m?.type === 'save-set') {
+    importedName = m.name;
+    imported = m.items.map((item: any, index: number) => ({ ...item, id: 'imported-' + index, origin: 'custom', setId: 'imported', variants: item.variants.map((v: any) => ({ ...v, nodeId: 'imported-' + index, width: 80, height: 80 })) }));
+    catalog(); send({ type: 'saved-set', setId: 'imported' }); send({ type: 'idle' });
+  }
   if (m?.type === 'preview-palette') { send({ type: 'palette-preview', preview: created ? { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#D7CDF5"/><path d="M100 100H900V500H100Z" fill="#F9ECB0"/></svg>', name: 'Композиция', backgroundIndex: 0 } : null }); send({ type: 'idle' }); }
   if (m?.type === 'save-palette') {
     try { const saved = store.save(m.palette); catalog(); send({ type: 'palette-saved', id: saved.id }); }
@@ -30,7 +39,9 @@ window.addEventListener('message', event => {
   }
   if (m?.type === 'export-palette') { send({ type: 'download', name: 'mixer-palette.json', data: store.export(m.id), mime: 'application/json' }); send({ type: 'idle' }); }
   if (m?.type === 'palette') { document.documentElement.dataset.applied = JSON.stringify(m); send({ type: 'palette-applied' }); send({ type: 'idle' }); }
-  if (m?.type === 'create') { created = true;
+  if (m?.type === 'create') {
+    if (new URLSearchParams(location.search).has('create-error') && !createFailed) { createFailed = true; send({ type: 'error', message: 'Тестовая ошибка генерации' }); send({ type: 'idle' }); return; }
+    created = true;
     document.documentElement.dataset.created = JSON.stringify(m.options);
     send({ type: 'scene', variants: m.options.count, width: m.options.width, height: m.options.height }); send({ type: 'idle' });
   }

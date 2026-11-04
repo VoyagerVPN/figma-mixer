@@ -15,6 +15,7 @@ const catalog = () => send({ type: 'catalog', sets: library.sets, items: library
 figma.showUI(__html__, { width: 520, height: 840, themeColors: true });
 
 figma.ui.onmessage = async message => {
+  if (message.type === 'close' && !busy) { figma.closePlugin(); return; }
   if (message.type === 'artwork-analysis') { artwork.receive(message); return; }
   if (message.type === 'ready') { if (initialized) catalog(); return; }
   if (message.type === 'key') { apiKey = String(message.key || '').trim(); send({ type: 'key-ready', ready: Boolean(apiKey) }); return; }

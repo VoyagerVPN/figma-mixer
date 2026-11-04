@@ -21,7 +21,7 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true, env: 
 const page = await browser.newPage({ viewport: { width: 520, height: 840 } }), errors = [];
 page.setDefaultTimeout(6000); page.on('pageerror', error => errors.push(error.message));
 const base = `http://127.0.0.1:${server.address().port}`;
-async function compose() { await page.getByRole('button', { name: 'Стартовый набор Элементов: 10', exact: true }).click(); await page.getByRole('button', { name: 'Композиция', exact: true }).click(); }
+async function compose() { await page.getByRole('button', { name: 'Готовая библиотека', exact: true }).click(); for (const name of ['Пазлы', 'Книга', 'Телефон']) await page.getByRole('button', { name, exact: true }).click(); await page.getByRole('button', { name: 'К параметрам', exact: true }).click(); }
 try {
   await page.goto(base); await compose();
   await page.getByRole('button', { name: 'Палитры', exact: true }).click();
@@ -43,23 +43,27 @@ try {
   assert.ok(options.palette.startsWith('custom-')); assert.equal(options.backgroundColor, '#D7CDF5');
   console.log('OK создание палитры → предпросмотр → сохранение → генерация');
 
+  await page.getByRole('heading', { name: 'Композиции на холсте', exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Создать ещё варианты', exact: true }).click();
   await page.getByRole('button', { name: 'Палитры', exact: true }).click();
-  await page.getByText('Выделенная композиция', { exact: true }).waitFor();
+  await page.getByText('Пример с выбранными предметами', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Заменить цвет #D7CDF5', exact: true }).click();
   const hex = page.getByRole('textbox', { name: 'HEX замены', exact: true });
   await hex.fill('zzzzz'); await hex.press('Tab');
-  assert.equal(await page.getByRole('button', { name: 'Применить', exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('button', { name: 'Использовать', exact: true }).isDisabled(), true);
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('dialog[open]').count(), 1);
-  assert.equal(await page.getByRole('button', { name: 'Применить', exact: true }).isEnabled(), true);
+  assert.equal(await page.getByRole('button', { name: 'Использовать', exact: true }).isEnabled(), true);
   await page.getByRole('button', { name: 'Заменить цвет #D7CDF5', exact: true }).click();
   await hex.fill('#152535'); await hex.press('Enter');
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
-  await page.getByRole('button', { name: 'Применить', exact: true }).click();
-  await page.waitForFunction(() => !!document.documentElement.dataset.applied);
-  const applied = JSON.parse(await page.locator('html').getAttribute('data-applied'));
-  assert.equal(applied.palette.id, 'draft'); assert.equal(applied.backgroundColor, '#152535');
-  console.log('OK неправильный HEX блокирует применение; Escape закрывает пикер; применение не требует сохранения палитры');
+  await page.getByRole('button', { name: 'Использовать', exact: true }).click();
+  await page.getByRole('button', { name: 'Создать варианты', exact: true }).click();
+  await page.getByRole('heading', { name: 'Композиции на холсте', exact: true }).waitFor();
+  const applied = JSON.parse(await page.locator('html').getAttribute('data-created'));
+  assert.equal(applied.palette, 'draft'); assert.equal(applied.paletteSnapshot.background[0], '#152535'); assert.equal(applied.backgroundColor, '#152535');
+  assert.equal(await page.locator('html').getAttribute('data-applied'), null);
+  console.log('OK неправильный HEX блокирует применение; Escape закрывает пикер; генерация с несохранённой палитрой не перекрашивает старые сцены');
 
   await page.reload(); await compose();
   assert.equal(await page.getByRole('button', { name: 'Палитра Изменённая палитра', exact: true }).count(), 0);

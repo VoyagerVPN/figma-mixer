@@ -11,9 +11,10 @@ type Props = {
   capture: (split?: boolean) => void; highlight: (id: string) => void;
   save: (name: string, items: DraftItem[], id?: string) => void; cancel: () => void;
   reportError: (message: string) => void;
+  forGeneration?: boolean;
 };
 export function ImportWizard(props: Props) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(props.forGeneration ? 'Моя библиотека' : '');
   const [excluded, setExcluded] = useState<string[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const pack = useRef<HTMLInputElement>(null);
@@ -37,8 +38,8 @@ export function ImportWizard(props: Props) {
 
   return <>
     <button className="back" onClick={props.cancel}><Icon name="arrow" />Назад</button>
-    <h1>{props.targetId ? 'Добавление элементов' : 'Создание набора'}</h1>
-    <p className="intro">Выделите целые объекты в Figma или загрузите SVG. Перед сохранением проверьте карточки.</p>
+    <h1>{props.forGeneration ? 'Добавьте свои элементы' : props.targetId ? 'Добавление элементов' : 'Создание набора'}</h1>
+    <p className="intro">{props.forGeneration ? 'Загрузите SVG или возьмите выделение Figma. Проверьте предметы — библиотека сохранится в этом файле, затем вы выберете состав композиции.' : 'Выделите целые объекты в Figma или загрузите SVG. Перед сохранением проверьте карточки.'}</p>
     <div className="action-row"><button className="with-icon" disabled={props.busy} onClick={() => props.capture()}><Icon name="selection" />Взять выделение Figma</button><button className="with-icon" disabled={props.busy} onClick={() => input.current?.click()}><Icon name="upload" />Загрузить SVG</button></div>
     <button className="link-button" onClick={() => pack.current?.click()}><Icon name="folder" />Импортировать сохранённый набор</button>
     {props.canSplit && <div className="hint-box">Выбран один контейнер. Он может быть целым элементом или содержать несколько.<button className="link-button" disabled={props.busy} onClick={() => props.capture(true)}><Icon name="layers" />Использовать вложенные объекты</button></div>}
@@ -54,7 +55,7 @@ export function ImportWizard(props: Props) {
       <div className="draft-fields"><label>Название элемента<input maxLength={100} value={item.name} onChange={e => patch(item.id, { name: e.target.value })} /></label><span className="hint">{item.variants.length > 1 ? `Вариантов: ${item.variants.length}` : 'Один целый элемент'}</span>{item.variants[0].nodeId && <button className="link-button" onClick={() => props.highlight(item.variants[0].nodeId!)}><Icon name="locate" />Показать на холсте</button>}</div>
     </article>)}</div>
     <p className="hint">Описание и варианты можно настроить позже в карточке элемента. Исходные объекты останутся на месте; в набор сохранятся копии.</p>
-    <div className="bottom-actions"><button onClick={props.cancel} disabled={props.busy}>Отмена</button><button className="primary with-icon" disabled={!valid || props.busy} onClick={() => props.save(props.targetId ? props.sets.find(s => s.id === props.targetId)!.name : name, included, props.targetId || undefined)}><Icon name={props.targetId ? 'plus' : 'save'} />{props.targetId ? 'Добавить элементы' : 'Создать набор'}</button></div>
+    <div className="bottom-actions"><button onClick={props.cancel} disabled={props.busy}>Отмена</button><button className="primary with-icon" disabled={!valid || props.busy} onClick={() => props.save(props.targetId ? props.sets.find(s => s.id === props.targetId)!.name : name, included, props.targetId || undefined)}><Icon name={props.targetId ? 'plus' : 'save'} />{props.forGeneration ? 'К выбору предметов' : props.targetId ? 'Добавить элементы' : 'Создать набор'}</button></div>
     <input ref={input} type="file" multiple accept=".svg,image/svg+xml" hidden onChange={async e => { const files = [...(e.target.files || [])]; e.target.value = ''; await readFiles(files); }} />
     <input ref={pack} type="file" accept=".json" hidden onChange={async e => {
       const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
