@@ -11,12 +11,13 @@ import { Panel } from './ui/Panel';
 import { AISettings } from './ui/AISettings';
 import { aiPresets, type AIConfig } from './ai';
 import { Icon } from './ui/Icon';
-import { builtInPalettes, type NamedPalette } from './palettes';
+import { builtInPalettes, type NamedPalette, type PaletteDraft } from './palettes';
 import { PaletteManager } from './ui/PaletteManager';
 import { GenerationStart, type PromptDraft } from './ui/GenerationStart';
 import type { Direction, GenerationInput } from './generation';
 import './ui.css';
 import './ui/flow.css';
+import './ui/chrome.css';
 
 const post = (type: string, payload = {}) => parent.postMessage({ pluginMessage: { type, ...payload } }, '*');
 function App() {
@@ -41,6 +42,7 @@ function App() {
   const pendingInput = useRef<GenerationInput | null>(null);
   const keyRequested = useRef(false);
   const [transientPalette, setTransientPalette] = useState<NamedPalette | null>(null);
+  const pendingPaletteSave = useRef<{ resolve: (palette: NamedPalette) => void; reject: (error: Error) => void } | null>(null);
   const availablePalettes = transientPalette ? [...palettes, transientPalette] : palettes;
   const activeSet = sets.find(s => s.id === activeId);
   const currentItems = useMemo(() => items.filter(i => i.setId === (activeId || 'starter')), [items, activeId]);
@@ -48,6 +50,7 @@ function App() {
   const [search, setSearch] = useState('');
   const main = useRef<HTMLElement>(null);
   useEffect(() => { if (main.current) main.current.scrollTop = 0; }, [view, editing?.id]);
+  useEffect(() => { post('palette-window', { expanded: paletteOpen }); }, [paletteOpen]);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -59,8 +62,8 @@ function App() {
         return;
       }
       if (m.type === 'catalog') { setSets(m.sets || []); setItems(m.items); if (m.palettes) setPalettes(m.palettes); setKeyReady(m.keyReady); if (m.aiConfig) setAIConfig(m.aiConfig); }
-      if (m.type === 'palette-saved') { setTransientPalette(null); setPaletteId(m.id); setPaletteOpen(false); setNotice('Палитра сохранена в этом файле Figma'); }
-      if (m.type === 'error') { pendingInput.current = null; keyRequested.current = false; setError(m.message); setBusy(''); }
+      if (m.type === 'palette-saved') { setTransientPalette(null); setPaletteId(m.id); pendingPaletteSave.current?.resolve(m.palette); pendingPaletteSave.current = null; setNotice('Палитра сохранена в этом файле Figma'); }
+      if (m.type === 'error') { pendingPaletteSave.current?.reject(new Error(m.message)); pendingPaletteSave.current = null; pendingInput.current = null; keyRequested.current = false; setError(m.message); setBusy(''); }
       if (m.type === 'needs-key') { keyRequested.current = true; setSettings(true); setBusy(''); }
       if (m.type === 'prompt-result') { pendingInput.current = null; setPromptResult(m.directions); setNotice(m.warnings?.join('. ') || ''); }
       if (m.type === 'idle') { if (resumeOnIdle.current && pendingInput.current) { resumeOnIdle.current = false; command('generate-prompt', { input: pendingInput.current }, 'Подбираем идеи и создаём композиции…'); } else setBusy(''); }
@@ -84,6 +87,7 @@ function App() {
   }, []);
 
   function usePalette(palette: NamedPalette) { setTransientPalette(palette.id === 'draft' ? palette : null); setPaletteId(palette.id); setPaletteOpen(false); }
+  function savePalette(palette: PaletteDraft) { return new Promise<NamedPalette>((resolve, reject) => { pendingPaletteSave.current = { resolve, reject }; command('save-palette', { palette }, 'Сохраняем палитру…'); }); }
   function openPalettes() { setPaletteOpen(true); setError(''); }
   function loadModels(config: AIConfig & { apiKey: string }) { return new Promise<string[]>((resolve, reject) => { const requestId = 'models-' + ++modelRequestId.current; modelRequests.current.set(requestId, { resolve, reject }); post('list-ai-models', { requestId, config }); }); }
   function choosePromptPalette(id: string) { if (id === '__manage__') { if (!(activeId || '') && !currentItems.length) { importDestination.current = 'home'; command('starter', {}, 'Готовим библиотеку для предпросмотра…'); } openPalettes(); return; } setPaletteId(id); if (id !== 'draft') setTransientPalette(null); }
@@ -113,7 +117,7 @@ function App() {
 
   return <div className="app">
     <header><div><span className="brand">Mixer</span><span className="version">Композиции из вашей графики</span></div><button className="connection icon-button" disabled={Boolean(busy)} aria-label="Настройки AI" title={keyReady ? 'Модель: ' + aiConfig.model : 'Настройки AI'} onClick={() => setSettings(v => !v)}><Icon name="settings" /></button></header>
-    {paletteOpen && <PaletteManager palettes={availablePalettes} selected={paletteId === 'auto' ? 'purple' : paletteId} items={previewItems} scene={null} busy={Boolean(busy)} error={error} select={usePalette} apply={usePalette} save={palette => command('save-palette', { palette }, 'Сохраняем палитру…')} exportPalette={id => command('export-palette', { id }, 'Экспортируем палитру…')} close={() => setPaletteOpen(false)} />}
+    {paletteOpen && <PaletteManager palettes={availablePalettes} selected={paletteId === 'auto' ? 'purple' : paletteId} items={previewItems} scene={null} busy={Boolean(busy)} error={error} select={usePalette} apply={usePalette} save={savePalette} exportPalette={id => command('export-palette', { id }, 'Экспортируем палитру…')} close={() => setPaletteOpen(false)} />}
     <Panel open={settings} title="Подключение AI" close={() => { pendingInput.current = null; keyRequested.current = false; resumeOnIdle.current = false; setSettings(false); }}>{settings && <AISettings initialModels={modelCatalog} loadModels={loadModels} current={aiConfig} ready={keyReady} busy={Boolean(busy)} error={error} save={(config, models) => { savedModels.current = models; command('configure-ai', { config }, 'Сохраняем подключение…'); }} />}</Panel>
     <main ref={main} className={view === 'generate' ? 'compose-view' : undefined}>
       {error && <div role="alert" className="message error">{error}</div>}

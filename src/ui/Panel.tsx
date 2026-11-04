@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { Icon } from './Icon';
 
-export function Panel({ open, title, description, children, close }: { open: boolean; title: string; description?: string; children: ReactNode; close: () => void }) {
+export function Panel({ open, title, description, children, close, footer, className = '' }: { open: boolean; title: string; description?: string; children: ReactNode; close: () => void; footer?: ReactNode; className?: string }) {
   const reference = useRef<HTMLDialogElement>(null);
   const id = useId();
   useEffect(() => {
@@ -10,7 +10,7 @@ export function Panel({ open, title, description, children, close }: { open: boo
     if (!open && element.open) element.close();
     return () => { if (element.open) element.close(); };
   }, [open]);
-  return <dialog ref={reference} className="ui-panel" aria-labelledby={id} onKeyDownCapture={event => {
+  return <dialog ref={reference} className={`ui-panel ${className}`} aria-labelledby={id} onKeyDownCapture={event => {
     // Escape сначала отменяет перенос; модальная панель при этом остаётся открытой.
     if (event.key === 'Escape' && event.currentTarget.querySelector('[data-dnd-active=true]')) event.preventDefault();
   }} onCancel={event => { event.preventDefault(); if (!event.currentTarget.querySelector('[data-dnd-active=true]')) close(); }} onClick={event => {
@@ -20,5 +20,6 @@ export function Panel({ open, title, description, children, close }: { open: boo
   }}>
       <div className="panel-header"><h2 id={id}>{title}</h2><button className="icon-button" aria-label="Закрыть панель" onClick={close}><Icon name="close" /></button></div>
       <div className="panel-body">{description && <p className="panel-description">{description}</p>}{children}</div>
+      {footer && <div className="panel-footer">{footer}</div>}
   </dialog>;
 }

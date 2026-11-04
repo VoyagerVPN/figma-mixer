@@ -6,6 +6,9 @@ import '../src/ui';
 
 // Граница Figma ↔ iframe: тот же документный store, транспорт заменён браузерными сообщениями.
 const store = new PaletteStore({ getPluginData: key => localStorage.getItem(key) || '', setPluginData: (key, value) => localStorage.setItem(key, value) });
+if (new URLSearchParams(location.search).has('palette-many') && !store.all().some(p => p.name === 'Набор 01')) {
+  for (let i = 1; i <= 24; i++) store.save({ ...store.all()[0], id: undefined, name: 'Набор ' + String(i).padStart(2, '0') });
+}
 function preview(svg: string) {
   const document = new DOMParser().parseFromString(svg, 'image/svg+xml');
   const root = window.document.importNode(document.documentElement, true) as unknown as SVGSVGElement;
@@ -28,6 +31,7 @@ let connection = { ...(savedAI ? validateAIConfig(JSON.parse(savedAI)) : aiPrese
 const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: 'Стартовый набор' }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady, aiConfig: publicAI(connection) });
 window.addEventListener('message', event => {
   const m = event.data?.pluginMessage;
+  if (m?.type === 'palette-window') document.documentElement.dataset.paletteWindow = String(m.expanded);
   if (m?.type === 'close') document.documentElement.dataset.closed = 'true';
   if (m?.type === 'ready') { catalog(); send({ type: 'idle' }); }
   if (m?.type === 'list-ai-models') void (async () => {
@@ -72,7 +76,7 @@ window.addEventListener('message', event => {
   }
   if (m?.type === 'preview-palette') { send({ type: 'palette-preview', preview: created ? { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#D7CDF5"/><path d="M100 100H900V500H100Z" fill="#F9ECB0"/></svg>', name: 'Композиция', backgroundIndex: 0 } : null }); send({ type: 'idle' }); }
   if (m?.type === 'save-palette') {
-    try { const saved = store.save(m.palette); catalog(); send({ type: 'palette-saved', id: saved.id }); }
+    try { if (new URLSearchParams(location.search).has('palette-save-error')) throw new Error('Тестовая ошибка сохранения палитры'); const saved = store.save(m.palette); catalog(); send({ type: 'palette-saved', id: saved.id, palette: saved }); }
     catch (error) { send({ type: 'error', message: String(error) }); }
     send({ type: 'idle' });
   }

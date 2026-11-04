@@ -17,6 +17,7 @@ const catalog = () => send({ type: 'catalog', sets: library.sets, items: library
 figma.showUI(__html__, { width: 520, height: 840, themeColors: true });
 
 figma.ui.onmessage = async message => {
+  if (message.type === 'palette-window') { figma.ui.resize(message.expanded ? 760 : 520, message.expanded ? 900 : 840); return; }
   if (message.type === 'list-ai-models') {
     try { send({ type: 'ai-models', requestId: message.requestId, models: await listAIModels(message.config, connection) }); }
     catch (error) { send({ type: 'ai-models', requestId: message.requestId, error: error instanceof Error ? error.message : 'Не удалось получить список моделей' }); }
@@ -58,7 +59,7 @@ figma.ui.onmessage = async message => {
     }
     if (message.type === 'save-palette') {
       const saved = palettes.save(message.palette);
-      figma.commitUndo(); catalog(); send({ type: 'palette-saved', id: saved.id });
+      figma.commitUndo(); catalog(); send({ type: 'palette-saved', id: saved.id, palette: saved });
     }
     if (message.type === 'export-palette') send({ type: 'download', name: 'mixer-palette.json', data: palettes.export(message.id), mime: 'application/json' });
     if (message.type === 'palette') { renderer.applyPalette(message.palette, message.backgroundColor); send({ type: 'palette-applied' }); send({ type: 'notice', message: 'Палитра применена. Расположение объектов сохранено' }); }
