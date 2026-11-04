@@ -1,0 +1,10 @@
+export type Detail = 'default' | 'S' | 'L';
+export type Role = 'default' | 'main' | 'background';
+export type Variant = { detail: Detail; role: Role; svg: string };
+export type Asset = { id: string; name: string; description: string; origin: string; variants: Variant[] };
+export type SetInfo = { id: string; name: string };
+export type DraftVariant = { detail: Detail; role: Role; label: string; svg?: string; nodeId?: string };
+export type DraftItem = { id: string; name: string; description: string; preview: string; variants: DraftVariant[] };
+export type Item = { id: string; setId: string; name: string; description: string; origin: string; preview: string; variants: { detail: Detail; role: Role; label?: string; nodeId: string; width: number; height: number }[] };
+export type Palette = { id: string; background: string[]; object_accents: string[]; ink: string; paper: string };
+export type SceneOptions = { ids: string[]; detail: Detail; palette: string; width: number; height: number; variant: number; count?: number; background: boolean; title: string; backgroundColor?: string; ground?: boolean; style?: 'balanced' | 'diagonal' | 'airy'; heroId?: string; backgroundId?: string; backgroundIds?: string[]; layerOrder?: string[]; crop?: 'none' | 'accent' };

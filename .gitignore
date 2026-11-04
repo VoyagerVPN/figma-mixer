@@ -1,0 +1,12 @@
+node_modules/
+.cache/
+dist/
+key.txt
+key*.txt
+.env
+.env.*
+!.env.example
+.local/
+*.log
+.socraticodeignore
+.socraticode*.json

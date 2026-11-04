@@ -1,0 +1,80 @@
+import { useState } from 'react';
+import palettes from '../assets/palettes.json';
+import type { Detail, Item, SceneOptions } from '../types';
+import { Preview } from './Preview';
+import { CustomSelect } from './CustomSelect';
+import { ColorPicker } from './ColorPicker';
+import { Panel } from './Panel';
+import { Icon } from './Icon';
+import { ChoiceGroup } from './ChoiceGroup';
+import { LayerEditor } from './LayerEditor';
+import { reconcileLayers, type LayerStack } from '../layers';
+
+const paletteNames: Record<string, string> = { purple: 'Сирень', peach: 'Персик', turquoise: 'Бирюза' };
+const layouts = [
+  { id: 'balanced', icon: 'balanced', name: 'Баланс', description: 'Асимметричная группа с крупным акцентом' },
+  { id: 'diagonal', icon: 'dynamic', name: 'Динамика', description: 'Несколько групп с диагональным движением' },
+  { id: 'airy', icon: 'airy', name: 'Свободный центр', description: 'Предметы по краям, пространство в центре' }
+] as const;
+
+export function Composer({ items, selected, toggle, busy, keyReady, selectByText, create, exportSvg, applyPalette, orderLayers, scene }: {
+  items: Item[]; selected: string[]; toggle: (id: string) => void; busy: boolean; keyReady: boolean;
+  selectByText: (query: string) => void; create: (options: SceneOptions) => void; exportSvg: () => void;
+  applyPalette: (id: string) => void; scene: string; orderLayers: () => void;
+}) {
+  const [query, setQuery] = useState(''), [format, setFormat] = useState('1200x630');
+  const [count, setCount] = useState(3), [detail, setDetail] = useState<Detail>('default');
+  const [palette, setPalette] = useState('original'), [variant, setVariant] = useState(0);
+  const [backgroundColor, setBackgroundColor] = useState('#D7CDF5'), [ground, setGround] = useState(false);
+  const [style, setStyle] = useState<NonNullable<SceneOptions['style']>>('balanced');
+  const [layers, setLayers] = useState<LayerStack>({ background: [], main: [], heroId: '', manual: false });
+  const [crop, setCrop] = useState<NonNullable<SceneOptions['crop']>>('accent');
+  const [panel, setPanel] = useState<'elements' | 'roles' | 'description' | 'advanced' | null>(null);
+  const chosen = items.filter(i => selected.includes(i.id));
+  const stack = reconcileLayers(layers, chosen.map(item => ({ id: item.id, canBackground: item.variants.some(v => v.role === 'background') })));
+  const validBackgrounds = stack.background, validFocus = stack.heroId;
+  const hasDetail = chosen.some(i => i.variants.some(v => v.detail !== 'default'));
+  const starter = items.every(i => i.origin === 'starter');
+  const validCount = Number.isInteger(count) && count >= 1 && count <= 12;
+
+  function generate() {
+    const [width, height] = format.split('x').map(Number);
+    create({ ids: selected, detail, palette, width, height, variant, count, background: validBackgrounds.length > 0, backgroundIds: validBackgrounds, heroId: validFocus, layerOrder: stack.manual ? [...stack.background, ...stack.main] : undefined, crop, style, title: query || 'Композиция', backgroundColor, ground });
+    setVariant(v => v + count);
+  }
+
+  return <div className="composer">
+    <section className="elements-section">
+      <div className="section-heading"><h2>Элементы <span className="meta">{selected.length} / 8</span></h2><div className="text-actions"><button disabled={busy} onClick={() => setPanel('elements')}><Icon name="edit" />Изменить</button><button disabled={busy || !chosen.length} onClick={() => setPanel('roles')}><Icon name="layers" />Слои{validBackgrounds.length > 0 && ` · ${validBackgrounds.length} фон.`}</button></div></div>
+      <div className={`compose-items selected-items ${chosen.length > 3 ? 'compact-selection' : ''}`}>{chosen.map(item => {
+        const picked = selected.includes(item.id), background = validBackgrounds.includes(item.id);
+        return <button key={item.id} disabled={busy || (!picked && selected.length >= 8)} className={`compose-pick ${picked ? 'chosen' : ''} ${background ? 'background-item' : ''}`} aria-label={item.name} aria-pressed={picked} onClick={() => toggle(item.id)}>
+          <Preview svg={item.preview} /><span className="item-name">{item.name}{background && <span className="item-role">фон</span>}</span>{picked && <span className={`pick-mark ${validFocus === item.id ? 'focus-star' : ''}`} aria-label={validFocus === item.id ? 'Главный акцент' : undefined} data-focus={validFocus === item.id}><Icon name={validFocus === item.id ? 'star' : 'check'} /></span>}
+        </button>;
+      })}</div>
+      {!chosen.length && <button className="empty-selection with-icon" onClick={() => setPanel('elements')}><Icon name="grid" />Выбрать элементы из набора</button>}
+    </section>
+
+    <section className="layout-section"><div className="section-heading"><h2>Построение</h2><button className="text-button" onClick={() => setPanel('advanced')} disabled={busy}><Icon name="settings" />Параметры</button></div>
+      <div className="segmented layout-options" role="group" aria-label="Построение композиции">{layouts.map(layout => <button key={layout.id} disabled={busy} aria-pressed={style === layout.id} onClick={() => setStyle(layout.id)}><Icon name={layout.icon} />{layout.name}</button>)}</div>
+      <p className="control-description">{layouts.find(layout => layout.id === style)!.description}</p>
+    </section>
+
+    <section className="appearance-section"><h2>Оформление</h2><div className="appearance-controls">
+      {starter && <div className="palette-options" role="group" aria-label="Палитра объектов"><button title="Исходные цвета" aria-label="Исходные цвета" aria-pressed={palette === 'original'} onClick={() => setPalette('original')}><span className="original-swatch" /><span>Исходная</span></button>{palettes.map(p => <button key={p.id} aria-label={`Палитра ${paletteNames[p.id]}`} aria-pressed={palette === p.id} onClick={() => { setPalette(p.id); setBackgroundColor(p.background[0]); }}><span className="palette-swatches">{[p.background[0], ...p.object_accents.slice(0, 2)].map((color, i) => <i key={i} style={{ background: color }} />)}</span><span>{paletteNames[p.id]}</span></button>)}</div>}
+      <ColorPicker value={backgroundColor} onChange={setBackgroundColor} />
+    </div></section>
+
+    <section className="output-section"><div className="output-controls"><CustomSelect label="Формат" value={format} onChange={setFormat} options={[{ value: '1200x630', label: 'Горизонтальный · 1200 × 630', icon: 'landscape' }, { value: '1080x1080', label: 'Квадрат · 1080 × 1080', icon: 'square' }, { value: '1080x1350', label: 'Вертикальный · 1080 × 1350', icon: 'portrait' }]} /><div className="quantity-field"><label htmlFor="variant-count">Вариантов</label><div className="quantity-control"><button aria-label="Меньше вариантов" disabled={busy || count <= 1} onClick={() => setCount(c => Math.max(1, (c || 1) - 1))}><Icon name="minus" /></button><input id="variant-count" aria-label="Количество вариантов" type="number" min={1} max={12} value={Number.isNaN(count) ? '' : count} onChange={e => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /><button aria-label="Больше вариантов" disabled={busy || count >= 12} onClick={() => setCount(c => Math.min(12, (c || 0) + 1))}><Icon name="plus" /></button></div></div></div></section>
+
+    {scene && <section className="scene-result"><p>{scene}</p><button className="text-button" disabled={busy} onClick={exportSvg}><Icon name="download" />Экспорт SVG</button></section>}
+    <div className="bottom-actions composer-actions"><span className="with-icon"><Icon name="crop" />{crop === 'none' ? 'Без обрезки' : 'С кадрированием'}{validBackgrounds.length > 0 && ` · фоновых: ${validBackgrounds.length}`}</span><button className="primary" disabled={busy || !selected.length || !validCount} onClick={generate}>Создать варианты<Icon name="composition" /></button></div>
+
+    <Panel open={panel !== null} title={panel === 'elements' ? 'Элементы набора' : panel === 'roles' ? 'Слои композиции' : panel === 'description' ? 'Подбор по описанию' : 'Параметры композиции'} close={() => setPanel(null)}>
+      {panel === 'elements' && <><div className="section-heading"><span className="meta">Выбрано {selected.length} из 8</span><button className="text-button" onClick={() => setPanel('description')}><Icon name="search" />Подобрать по описанию</button></div><div className="compose-items">{items.map(item => <button key={item.id} className={`compose-pick ${selected.includes(item.id) ? 'chosen' : ''}`} aria-label={item.name} aria-pressed={selected.includes(item.id)} disabled={!selected.includes(item.id) && selected.length >= 8} onClick={() => toggle(item.id)}><Preview svg={item.preview} /><span className="item-name">{item.name}</span>{selected.includes(item.id) && <span className="pick-mark"><Icon name="check" /></span>}</button>)}</div><button className="primary panel-done" onClick={() => setPanel(null)}>Готово</button></>}
+      {panel === 'roles' && <LayerEditor items={chosen} value={stack} onChange={setLayers} close={() => setPanel(null)} busy={busy} />}
+      {panel === 'description' && <><p className="panel-description">Перечислите названия или опишите тему композиции</p><label>Описание<textarea autoFocus value={query} maxLength={1500} onChange={e => setQuery(e.target.value)} placeholder="Рабочее место дизайнера" /></label><p className="hint">{keyReady ? 'Смысловой подбор через DeepSeek' : 'По названиям — локально, по смыслу — с подключённым DeepSeek'}</p><button className="primary panel-done with-icon" disabled={busy || !query.trim()} onClick={() => { setPanel(null); selectByText(query); }}><Icon name="search" />Подобрать элементы</button></>}
+      {panel === 'advanced' && <><ChoiceGroup label="Кадрирование" value={crop} onChange={setCrop} options={[{ value: 'accent', label: 'Выход за края кадра' }, { value: 'none', label: 'Силуэты целиком' }]} />{hasDetail && <><span className="field-label">Версия графики</span><div className="segmented" role="group" aria-label="Версия графики">{(['default', 'L', 'S'] as const).map(value => <button key={value} aria-pressed={detail === value} onClick={() => setDetail(value)}>{value === 'default' ? 'Исходная' : value}</button>)}</div><p className="hint">Готовые авторские версии L и S. Различия зависят от предмета</p></>}<label className="check setting-row"><span className="with-icon"><Icon name="plane" />Диагональная плоскость</span><input aria-label="Диагональная плоскость" type="checkbox" role="switch" checked={ground} onChange={e => setGround(e.target.checked)} /></label><div className="maintenance-actions"><button disabled={busy} onClick={() => { setPanel(null); orderLayers(); }}><Icon name="layers" />Упорядочить слои на холсте</button>{starter && palette !== 'original' && <button disabled={busy} onClick={() => { setPanel(null); applyPalette(palette); }}><Icon name="palette" />Применить палитру к выделенному</button>}</div><button className="primary panel-done" onClick={() => setPanel(null)}>Готово</button></>}
+    </Panel>
+  </div>;
+}

@@ -1,0 +1,11 @@
+import { execFile } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+const root = resolve(import.meta.dirname, '..');
+const [input, output, width = '2200'] = process.argv.slice(2);
+if (!input || !output) throw new Error('Укажите входной SVG и выходной PNG');
+const cache = resolve(root, '.cache/inkscape');
+await mkdir(resolve(cache, 'profile'), { recursive: true });
+await mkdir(resolve(cache, 'cache'), { recursive: true });
+await new Promise((done, fail) => execFile('C:\\Program Files\\Inkscape\\bin\\inkscape.exe', [resolve(input), '--export-type=png', '--export-width=' + width, '--export-filename=' + resolve(output)], { windowsHide: true, shell: false, env: { ...process.env, INKSCAPE_PROFILE_DIR: resolve(cache, 'profile'), XDG_CACHE_HOME: resolve(cache, 'cache') } }, (error, stdout, stderr) => error ? fail(error) : done(undefined)));
+console.log('Отрисовано: ' + output);
