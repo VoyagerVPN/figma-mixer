@@ -31,6 +31,9 @@ try {
   for (const name of ['Пазлы', 'Книга', 'Телефон']) await page.getByRole('button', { name, exact: true }).click();
   await page.getByRole('button', { name: 'К параметрам', exact: true }).click();
   await page.getByRole('heading', { name: 'Параметры генерации', exact: true }).waitFor();
+  const layouts = page.getByRole('group', { name: 'Построение композиции', exact: true });
+  assert.deepEqual(await layouts.getByRole('button').allTextContents(), ['Баланс', 'Свободный центр']);
+  assert.equal(await layouts.getByRole('button', { name: 'Баланс', exact: true }).getAttribute('aria-pressed'), 'true');
   assert.equal(await page.locator('.compose-items:visible').count(), 0);
   assert.equal(await page.getByRole('button', { name: 'Создать варианты', exact: true }).isEnabled(), true);
   assert.equal(await page.getByRole('button', { name: /Объединить/ }).count(), 0);
@@ -41,6 +44,7 @@ try {
   await manualCount.fill('2');
   await page.getByRole('combobox', { name: 'Соотношение сторон', exact: true }).click();
   await page.getByRole('option', { name: '4:5 Вертикальный', exact: true }).click();
+  await layouts.getByRole('button', { name: 'Свободный центр', exact: true }).click();
   await page.getByRole('button', { name: 'Создать варианты', exact: true }).click();
   await page.getByRole('heading', { name: 'Композиции на холсте', exact: true }).waitFor();
   assert.equal(await page.locator('.compose-items:visible').count(), 0);
@@ -48,6 +52,7 @@ try {
   const first = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.deepEqual([first.count, first.width, first.height], [2, 1080, 1350]);
   assert.equal(first.ids.length, 3);
+  assert.equal(first.style, 'airy');
   await page.getByRole('button', { name: 'Создать ещё варианты', exact: true }).click();
   assert.equal(await page.getByRole('spinbutton', { name: 'Количество вариантов', exact: true }).inputValue(), '2');
   await page.getByRole('button', { name: 'Изменить', exact: true }).click();

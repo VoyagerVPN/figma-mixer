@@ -14,7 +14,6 @@ const paths = {
     edit: 'm10 2 4 4M2 14l4-1 8-8-4-4-8 8z',
     search: 'M10.5 6.5a4 4 0 1 1-8 0 4 4 0 0 1 8 0M9.5 9.5l4 4',
     balanced: 'M2 3h5v5H2zM9 5h5v8H9zM2 10h3v3H2z',
-    dynamic: 'M2 10h4v4H2zM6 6h4v4H6zM10 2h4v4h-4z',
     airy: 'M5 2H2v3M11 2h3v3M2 11v3h3M11 14h3v-3M6 6h4v4H6z',
     ratio16x9: 'M1.6 4.4h12.8v7.2H1.6z',
     ratio4x3: 'M1.6 3.2h12.8v9.6H1.6z',

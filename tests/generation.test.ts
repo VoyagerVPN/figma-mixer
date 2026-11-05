@@ -28,6 +28,17 @@ test('один AI-запрос подбирает разные составы и
   expect(sent.response_format).toEqual({ type: 'json_object' });
 });
 
+test('модель получает два описанных построения, а старый ответ с диагональю переводится в баланс', async () => {
+  const plan = await planWithAI(input, items, builtInPalettes, connection, async (_url, options) => {
+    const { messages } = JSON.parse(String(options?.body));
+    expect(messages[0].content).toContain('balanced — «Баланс»');
+    expect(messages[0].content).toContain('airy — «Свободный центр»');
+    expect(messages[0].content).not.toContain('diagonal');
+    return response({ directions: [{ ...directions[0], style: 'diagonal' }, directions[1]] })();
+  });
+  expect(plan.map(p => p.style)).toEqual(['balanced', 'airy']);
+});
+
 test('для запроса «книга фоном» генератор сохраняет фон во всех вариантах и сбрасывает недопустимый акцент', async () => {
   const book = items[0];
   const catalog: Item[] = [{
@@ -95,6 +106,7 @@ test('режим предметов сохраняет состав и с авт
   const options = { ...input, mode: 'items' as const, requiredItemIds: ['book'] };
   const plan = await planWithAI({ ...options, query: 'lamp' }, items, builtInPalettes, connection, withoutAI);
   expect(plan.map(p => p.ids)).toEqual([['book', 'lamp'], ['book', 'lamp']]);
+  expect(plan.map(p => p.style)).toEqual(['balanced', 'airy']);
   await expect(planWithAI({ ...options, query: 'неизвестный предмет' }, items, builtInPalettes, connection, withoutAI))
     .rejects.toThrow('неизвестный предмет');
 });
@@ -128,7 +140,7 @@ test('весь план проверяется перед созданием; п
 });
 
 test('выдуманные предметы, палитры, роли и повтор одинакового состава отклоняются до рендера', async () => {
-  for (const changed of [{ ids: ['invented'] }, { palette: 'invented' }, { backgroundIds: ['book'] }, { backgroundIndex: 3 }, { ...directions[0] }]) {
+  for (const changed of [{ ids: ['invented'] }, { palette: 'invented' }, { backgroundIds: ['book'] }, { backgroundIndex: 3 }, { style: 'invented' }, { ...directions[0] }]) {
     await expect(planWithAI(input, items, builtInPalettes, connection, response({ directions: [directions[0], { ...directions[1], ...changed }] }))).rejects.toThrow();
   }
 });

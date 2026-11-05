@@ -15,7 +15,6 @@ import { reconcileLayers, type LayerStack } from '../layers';
 
 const layouts = [
   { id: 'balanced', icon: 'balanced', name: 'Баланс', description: 'Асимметричная группа с крупным акцентом' },
-  { id: 'diagonal', icon: 'dynamic', name: 'Динамика', description: 'Несколько групп с диагональным движением' },
   { id: 'airy', icon: 'airy', name: 'Свободный центр', description: 'Предметы по краям, пространство в центре' }
 ] as const;
 
@@ -29,7 +28,7 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
   const [count, setCount] = useState(1), [detail, setDetail] = useState<Detail>('default');
   const [variant, setVariant] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#D7CDF5'), [ground, setGround] = useState(false);
-  const [style, setStyle] = useState<NonNullable<SceneOptions['style']>>('balanced');
+  const [style, setStyle] = useState<typeof layouts[number]['id']>('balanced');
   const [layers, setLayers] = useState<LayerStack>({ background: [], main: [], heroId: '', manual: false });
   const [crop, setCrop] = useState<NonNullable<SceneOptions['crop']>>('accent');
   const [panel, setPanel] = useState<'roles' | 'description' | 'advanced' | null>(null);

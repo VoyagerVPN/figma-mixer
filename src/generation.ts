@@ -6,7 +6,7 @@ import { requestAIJSON, type AIConnection } from './ai';
 
 export type PromptMode = 'items' | 'metaphor';
 export type GenerationInput = { query: string; mode?: PromptMode; setId: string; palette: string; paletteSnapshot?: Palette; width: number; height: number; count: number; variant?: number; detail?: SceneOptions['detail']; requiredItemIds?: string[] };
-export type Direction = { title: string; ids: string[]; palette: string; backgroundIndex: number; style: NonNullable<SceneOptions['style']>; heroId: string; backgroundIds: string[]; explanation: string };
+export type Direction = { title: string; ids: string[]; palette: string; backgroundIndex: number; style: 'balanced' | 'airy'; heroId: string; backgroundIds: string[]; explanation: string };
 
 type Generator = { create: (options: SceneOptions) => Promise<{ frameIds: string[]; warnings?: string[] }>; removeGenerated: (ids: string[]) => Promise<void> };
 
@@ -46,7 +46,7 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
     ids: explicitIds,
     palette: input.palette === 'auto' ? palettes[0].id : input.palette,
     backgroundIndex: 0,
-    style: (['balanced', 'diagonal', 'airy'] as const)[index % 3],
+    style: index % 2 === 0 ? 'balanced' : 'airy',
     heroId: '',
     backgroundIds: [],
     explanation: 'Использован указанный состав.'
@@ -59,7 +59,9 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
     'В ids перечисляй все предметы варианта. В backgroundIds перечисляй id тех из них, для которых нужна фоновая версия. Допустимо несколько id с canBackground=true. Если таких ролей нет, верни пустой массив.',
     'Явно заданная фоновая роль обязательна. Например, «книга фоном», «книгу на задний план» или «@Книга фоном» означает, что в каждом варианте id книги должен быть в ids и backgroundIds, если у книги есть фоновая версия.',
     'heroId необязателен и выбирается только среди основных предметов. backgroundIndex (0, 1 или 2) выбирает цвет холста отдельно от фоновых предметов.',
-    'Не меняй физические размеры и внутреннее устройство предметов. style: balanced, diagonal или airy.',
+    'Не меняй физические размеры и внутреннее устройство предметов. Для style доступны два построения.',
+    'balanced — «Баланс». Выбирай по умолчанию. Предметы образуют уравновешенную группу вокруг основного акцента.',
+    'airy — «Свободный центр». Выбирай, когда пользователь просит оставить пространство в центре, например под заголовок. Предметы располагаются ближе к краям кадра, освобождая центр.',
     exact ? 'Во всех решениях используй строго этот состав: ' + JSON.stringify(explicitIds) : '',
     requiredItems.length ? 'Обязательные предметы для каждого варианта: ' + JSON.stringify(requiredItems) + '. Включи каждый из них в ids.' : '',
     'Верни JSON {"directions":[{"title":"Короткий заголовок по-русски","ids":["id основного предмета","id фонового предмета"],"palette":"id","backgroundIndex":0,"style":"balanced","heroId":"id основного предмета или пустая строка","backgroundIds":["id фонового предмета"],"explanation":"Одно короткое объяснение связи предметов по-русски"}]}.',
@@ -75,14 +77,15 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
     if (!ids.length || ids.length > 8) throw new Error('AI должен выбрать от одного до восьми предметов');
     if (!available.some(p => p.id === raw.palette)) throw new Error('AI вернул недоступную палитру');
     if (!Number.isInteger(raw.backgroundIndex) || raw.backgroundIndex < 0 || raw.backgroundIndex > 2) throw new Error('AI вернул недопустимый цвет фона');
-    if (!['balanced', 'diagonal', 'airy'].includes(raw.style)) throw new Error('AI вернул неизвестное построение');
+    const style = raw.style === 'diagonal' ? 'balanced' : raw.style;
+    if (style !== 'balanced' && style !== 'airy') throw new Error('AI вернул неизвестное построение');
     const backgroundIds = raw.backgroundIds || [];
     if (!Array.isArray(backgroundIds) || backgroundIds.some(id => !ids.includes(id) || !items.find(item => item.id === id)?.variants.some(v => v.role === 'background'))) throw new Error('AI назначил недоступную фоновую роль');
     const heroId = ids.find(id => id === raw.heroId && !backgroundIds.includes(id)) ?? '';
     if (requiredIds.some(id => !ids.includes(id))) throw new Error('AI пропустил обязательный предмет');
     if (exact && (ids.length !== explicitIds.length || ids.some(id => !explicitIds.includes(id)))) throw new Error('AI изменил явно указанный состав');
     if (typeof raw.title !== 'string' || !raw.title.trim()) throw new Error('AI не указал название варианта');
-    return { title: raw.title.trim().slice(0, 80), ids, palette: raw.palette, backgroundIndex: raw.backgroundIndex, style: raw.style, heroId, backgroundIds: [...new Set(backgroundIds)] as string[], explanation: explanation.slice(0, 300) };
+    return { title: raw.title.trim().slice(0, 80), ids, palette: raw.palette, backgroundIndex: raw.backgroundIndex, style, heroId, backgroundIds: [...new Set(backgroundIds)] as string[], explanation: explanation.slice(0, 300) };
   });
   if (!exact && !requiredIds.length && new Set(result.map(p => [...p.ids].sort().join('\0'))).size < Math.min(input.count, 2 ** Math.min(items.length, 4) - 1)) throw new Error('AI повторил одинаковые составы. Повторите генерацию');
   return result;
