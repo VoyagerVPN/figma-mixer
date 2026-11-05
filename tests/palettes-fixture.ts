@@ -57,6 +57,9 @@ window.addEventListener('message', event => {
         removeGenerated: async () => {}
       }, async (url, options) => {
         document.documentElement.dataset.aiRequest = JSON.stringify({ url, body: JSON.parse(String(options?.body)) });
+        if (m.input.mode === 'items' && m.input.style === 'auto') {
+          return new Response(JSON.stringify({ choices: [{ message: { content: '{"style":"airy"}' } }] }));
+        }
         const required: string[] = [...(m.input.requiredItemIds || []), ...resolveItemMentions(m.input.query, selected).ids];
         const combinations: string[][] = [];
         for (let a = 0; a < selected.length; a++) for (let b = a + 1; b < selected.length; b++) combinations.push([selected[a].id, selected[b].id]);

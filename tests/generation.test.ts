@@ -120,6 +120,23 @@ test('выбранное построение в режиме предметов
   }
 });
 
+test('автопостроение запрашивает один режим и сохраняет предметы, фоновые роли и палитру', async () => {
+  const book: Item = { ...items[0], variants: [...items[0].variants, { ...items[0].variants[0], nodeId: 'book-bg', role: 'background' }] };
+  const catalog = [book, ...items.slice(1)];
+  const options = { ...input, mode: 'items' as const, query: 'book (фон), lamp', palette: 'peach', style: 'auto' as const, count: 3 };
+  let requests = 0;
+  const plan = await planWithAI(options, catalog, builtInPalettes, connection, async (_url, request) => {
+    requests++;
+    const { messages } = JSON.parse(String(request?.body));
+    expect(JSON.parse(messages[1].content).items).toMatchObject([{ name: 'book', role: 'background' }, { name: 'lamp', role: 'main' }]);
+    return response({ style: 'airy', ids: ['phone'], backgroundIds: [], palette: 'purple' })();
+  });
+  expect(requests).toBe(1);
+  expect(plan).toHaveLength(3);
+  for (const direction of plan) expect(direction).toMatchObject({ style: 'airy', ids: ['book', 'lamp'], backgroundIds: ['book'], palette: 'peach' });
+  await expect(planWithAI(options, catalog, builtInPalettes, connection, response({ style: 'diagonal' }))).rejects.toThrow('неизвестное построение');
+});
+
 test('название предмета с запятой остаётся целым в редактируемом списке', async () => {
   const catalog = [{ ...items[0], name: 'Книга, открытая' }, items[1]];
   const options = { ...input, mode: 'items' as const, query: '"Книга, открытая", lamp, ' };

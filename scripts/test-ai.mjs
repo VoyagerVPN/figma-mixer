@@ -207,6 +207,21 @@ try {
   console.log('OK предметы по буквам → выбор Tab и мышью → точный состав без AI');
 
   await page.goto(base + '?empty');
+  await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
+  await itemInput.fill('Книга (фон), Лампа');
+  await layout.click();
+  await page.getByRole('listbox', { name: 'Построение', exact: true }).getByRole('option', { name: 'Пусть AI выберет', exact: true }).click();
+  assert.equal(await layout.innerText(), 'Авто');
+  await itemInput.press('Control+Enter');
+  const autoSettings = page.getByRole('dialog', { name: 'Подключение AI', exact: true });
+  await autoSettings.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
+  await autoSettings.getByRole('button', { name: 'Сохранить и сгенерировать', exact: true }).click();
+  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  const autoScene = JSON.parse(await page.locator('html').getAttribute('data-created'));
+  assert.deepEqual([autoScene.style, autoScene.ids, autoScene.backgroundIds], ['airy', ['starter-2', 'starter-5'], ['starter-2']]);
+  console.log('OK автопостроение в режиме предметов запрашивает AI и сохраняет состав и фон');
+
+  await page.goto(base + '?empty');
   await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Сложная задача и новые идеи');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor();

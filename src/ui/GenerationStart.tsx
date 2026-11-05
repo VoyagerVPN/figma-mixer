@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Item, SetInfo } from '../types';
 import type { NamedPalette } from '../palettes';
-import type { Direction, PromptMode } from '../generation';
+import type { Direction, ItemLayout, PromptMode } from '../generation';
 import { itemListName, itemListTokens, normalizeItemName, readItemListEntry, resolveItemList, resolveItemMentions } from '../core';
 import { CustomSelect } from './CustomSelect';
 import { Icon } from './Icon';
@@ -16,12 +16,16 @@ const details = [
   { value: 'L', label: 'L · Подробная', shortLabel: 'L' },
   { value: 'S', label: 'S · Упрощённая', shortLabel: 'S' }
 ] as const;
+const itemLayouts = [
+  { value: 'auto', label: 'Пусть AI выберет', shortLabel: 'Авто', icon: 'astroid' },
+  ...compositionLayouts
+] as const;
 
 export type PromptDraft = {
   mode: PromptMode;
   query: string;
   itemQuery: string;
-  itemStyle: Direction['style'];
+  itemStyle: ItemLayout;
   format: CanvasFormat;
   count: number;
   detail: 'default' | 'L' | 'S';
@@ -282,8 +286,8 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
             onChange={format => change({ ...draft, format })} options={canvasFormats} />
           <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
-          {itemMode && <CustomSelect label="Построение" triggerIcon={draft.itemStyle} value={draft.itemStyle} disabled={busy}
-            onChange={itemStyle => change({ ...draft, itemStyle })} options={compositionLayouts} />}
+          {itemMode && <CustomSelect label="Построение" triggerIcon={draft.itemStyle === 'auto' ? 'astroid' : draft.itemStyle} value={draft.itemStyle} disabled={busy}
+            onChange={itemStyle => change({ ...draft, itemStyle })} options={itemLayouts} />}
         </div>
         <button className="primary prompt-send" type="button" aria-label="Создать композиции" aria-keyshortcuts="Control+Enter"
           title="Создать композиции (Ctrl+Enter)" disabled={!canGenerate} onClick={generate}><Icon name="up" /></button>
