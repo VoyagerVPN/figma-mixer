@@ -40,7 +40,7 @@ try {
   assert.equal(await manualCount.inputValue(), '1');
   await manualCount.fill('2');
   await page.getByRole('combobox', { name: 'Соотношение сторон', exact: true }).click();
-  await page.getByRole('option', { name: '4:5 · Вертикальный', exact: true }).click();
+  await page.getByRole('option', { name: '4:5 Вертикальный', exact: true }).click();
   await page.getByRole('button', { name: 'Создать варианты', exact: true }).click();
   await page.getByRole('heading', { name: 'Композиции на холсте', exact: true }).waitFor();
   assert.equal(await page.locator('.compose-items:visible').count(), 0);

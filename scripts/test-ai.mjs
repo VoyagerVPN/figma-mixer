@@ -32,8 +32,17 @@ try {
   const aspect = prompt.getByRole('combobox', { name: 'Соотношение сторон', exact: true });
   assert.equal(await aspect.innerText(), '16:9');
   await aspect.click();
-  const aspectOptions = await page.getByRole('listbox', { name: 'Соотношение сторон' }).getByRole('option').allTextContents();
-  assert.deepEqual(aspectOptions.map(option => option.split(' · ')[0]), ['16:9', '4:3', '5:4', '1:1', '4:5', '3:4', '9:16']);
+  const aspectOptions = page.getByRole('listbox', { name: 'Соотношение сторон' }).getByRole('option');
+  const aspectLabels = ['16:9 Горизонтальный', '4:3 Горизонтальный', '5:4 Горизонтальный', '1:1 Квадрат', '4:5 Вертикальный', '3:4 Вертикальный', '9:16 Вертикальный'];
+  assert.deepEqual((await aspectOptions.allTextContents()).map(label => label.replace(/✓$/, '').trim()), aspectLabels);
+  const iconRatios = await aspectOptions.evaluateAll(options => options.map(option => {
+    const { width, height } = option.querySelector('svg path').getBBox();
+    return width / height;
+  }));
+  for (const [index, ratio] of [16 / 9, 4 / 3, 5 / 4, 1, 4 / 5, 3 / 4, 9 / 16].entries()) {
+    assert.ok(Math.abs(iconRatios[index] - ratio) < 0.001, aspectLabels[index]);
+  }
+  await page.screenshot({ path: resolve(output, 'aspect-ratios.png') });
   await page.keyboard.press('Escape');
   const variants = prompt.getByRole('group', { name: 'Количество вариантов', exact: true });
   const count = variants.getByRole('status');
@@ -89,7 +98,7 @@ try {
   await palette.click();
   await page.getByRole('option', { name: 'Персик', exact: true }).click();
   await aspect.click();
-  await page.getByRole('option', { name: '1:1 · Квадрат', exact: true }).click();
+  await page.getByRole('option', { name: '1:1 Квадрат', exact: true }).click();
   await prompt.getByRole('combobox', { name: 'Детализация', exact: true }).click();
   await page.getByRole('option', { name: 'S · Упрощённая', exact: true }).click();
   await less.click();
@@ -149,7 +158,7 @@ try {
   assert.deepEqual(manual.directions.map(p => p.ids), [['starter-2', 'starter-1', 'starter-5']]);
   for (const [ratio, width, height] of [['4:3', 1440, 1080], ['5:4', 1350, 1080], ['3:4', 1080, 1440], ['9:16', 720, 1280]]) {
     await aspect.click();
-    await page.getByRole('option', { name: new RegExp(`^${ratio} · `) }).click();
+    await page.getByRole('option', { name: new RegExp(`^${ratio} `) }).click();
     await prompt.getByRole('button', { name: 'Создать композиции', exact: true }).click();
     await page.waitForFunction(([w, h]) => {
       const frame = JSON.parse(document.documentElement.dataset.created || '{}');

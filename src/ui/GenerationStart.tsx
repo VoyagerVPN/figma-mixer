@@ -264,7 +264,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
             <button type="button" aria-label="Больше вариантов" title="Больше вариантов" disabled={busy || draft.count >= 12}
               onClick={() => change({ ...draft, count: draft.count + 1 })}><Icon name="plus" /></button>
           </div>
-          <CustomSelect label="Соотношение сторон" triggerIcon={canvasFormats.find(format => format.value === draft.format)?.icon ?? 'landscape'} value={draft.format} disabled={busy}
+          <CustomSelect label="Соотношение сторон" triggerIcon={canvasFormats.find(format => format.value === draft.format)?.icon ?? canvasFormats[0].icon} value={draft.format} disabled={busy}
             onChange={format => change({ ...draft, format })} options={canvasFormats} />
           <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
