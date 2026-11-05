@@ -48,7 +48,7 @@ figma.ui.onmessage = async message => {
       catalog(); send({ type: 'saved-set', setId: set.id });
     }
     if (message.type === 'starter') { const set = await library.starter(); catalog(); send({ type: 'open-set', setId: set.id }); }
-    if (message.type === 'update-item') { await library.update(message.id, message.name, message.description, message.variants); catalog(); send({ type: 'item-updated' }); }
+    if (message.type === 'update-item') { await library.update(message.id, message.name, message.variants); catalog(); send({ type: 'item-updated' }); }
     if (message.type === 'merge-items') { await library.merge(message.ids, message.name); catalog(); send({ type: 'merged' }); }
     if (message.type === 'create') send({ type: 'scene', ...await renderer.create(message.options, library.items, samples => artwork.analyze(samples)) });
     if (message.type === 'preview-palette') send({ type: 'palette-preview', preview: await renderer.previewPalette() });

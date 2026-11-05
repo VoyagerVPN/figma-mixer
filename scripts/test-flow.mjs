@@ -81,6 +81,10 @@ try {
   await openAdvanced(); await page.getByRole('button', { name: 'Управление библиотеками', exact: true }).click();
   await page.getByRole('button', { name: 'Стартовый набор Элементов: 10', exact: true }).click();
   assert.equal(await page.getByRole('checkbox', { name: 'Объединить Книга', exact: true }).isVisible(), true);
+  await page.getByRole('button', { name: 'Открыть элемент Книга', exact: true }).click();
+  await page.getByRole('heading', { name: 'Карточка элемента', exact: true }).waitFor();
+  assert.equal(await page.getByRole('textbox', { name: /Описание для смыслового подбора/ }).count(), 0);
+  await page.getByRole('button', { name: 'К элементам набора', exact: true }).click();
   await page.getByRole('button', { name: 'Создать композицию', exact: true }).click(); await openManual();
   await page.getByRole('heading', { name: 'Выберите предметы', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: 'К параметрам', exact: true }).isDisabled(), true);

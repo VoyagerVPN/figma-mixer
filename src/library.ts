@@ -157,15 +157,15 @@ export class Library {
     return set;
   }
 
-  async update(itemId: string, name: string, description: string, variants: DraftVariant[]) {
+  async update(itemId: string, name: string, variants: DraftVariant[]) {
     const item = this.items.find(i => i.id === itemId);
     if (!item) throw new Error('Элемент больше не существует');
-    validateDraft('Редактирование', [{ ...item, name, description, variants }]);
+    validateDraft('Редактирование', [{ ...item, name, variants }]);
     if (variants.length !== item.variants.length || variants.some(v => !item.variants.some(old => old.nodeId === v.nodeId))) throw new Error('Состав вариантов изменился');
     for (const v of variants) {
       const node = await figma.getNodeByIdAsync(v.nodeId!) as SceneNode;
       const meta = this.meta(node);
-      node.setPluginData('mixer-item', JSON.stringify({ ...meta, name: name.trim(), description: description.trim(), detail: v.detail, role: v.role, label: v.label }));
+      node.setPluginData('mixer-item', JSON.stringify({ ...meta, name: name.trim(), detail: v.detail, role: v.role, label: v.label }));
       node.name = name.trim() + ' · ' + v.label;
     }
     figma.commitUndo(); await this.refresh();

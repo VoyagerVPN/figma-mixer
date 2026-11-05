@@ -15,13 +15,16 @@ const response = (value: unknown) => async () => new Response(JSON.stringify({ c
 
 test('один AI-запрос подбирает разные составы и только доступные палитры', async () => {
   let sent: any;
-  const plan = await planWithAI(input, items, builtInPalettes, connection, async (_url, options) => {
+  const catalog = [{ ...items[0], description: 'Старое описание из сохранённой библиотеки' }, ...items.slice(1)];
+  const plan = await planWithAI(input, catalog, builtInPalettes, connection, async (_url, options) => {
     sent = JSON.parse(String(options?.body));
     return response({ directions })();
   });
   expect(plan.map(p => p.ids)).toEqual([['book', 'lamp'], ['book', 'phone']]);
   expect(plan.map(p => p.palette)).toEqual(['purple', 'peach']);
   expect(sent.messages[0].content).toContain('backgroundIds');
+  expect(sent.messages[0].content).toContain('"name":"book"');
+  expect(sent.messages[0].content).not.toContain('"description"');
   expect(sent.response_format).toEqual({ type: 'json_object' });
 });
 

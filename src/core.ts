@@ -1,7 +1,7 @@
 import { composeScene, type CompositionItem } from './composition';
 export { sceneLayerOrder } from './scene-order';
 export type { SceneLayer } from './scene-order';
-export type CatalogItem = { id: string; name: string; description: string };
+export type CatalogItem = { id: string; name: string };
 export function validateSelection(value: unknown, catalog: CatalogItem[]) {
   const result = value as { ids?: unknown; explanation?: unknown };
   if (!result || !Array.isArray(result.ids) || !result.ids.length || result.ids.length > 8) throw new Error('Модель вернула некорректный набор предметов');
