@@ -31,7 +31,7 @@ function App() {
   const [mergeName, setMergeName] = useState(''), [editing, setEditing] = useState<Item | null>(null);
   const [draft, setDraft] = useState<DraftItem[]>([]), [canSplit, setCanSplit] = useState(false), [skipped, setSkipped] = useState<string[]>([]);
   const [busy, setBusy] = useState('Загружаем наборы…'), [error, setError] = useState(''), [notice, setNotice] = useState('');
-  const [keyReady, setKeyReady] = useState(false), [settings, setSettings] = useState(false);
+  const [keyReady, setKeyReady] = useState(false), [settings, setSettings] = useState<'manual' | 'generate' | null>(null);
   const [aiConfig, setAIConfig] = useState<AIConfig>(aiPresets.deepseek);
   const resumeOnIdle = useRef(false);
   const [modelCatalog, setModelCatalog] = useState<string[]>([]), savedModels = useRef<string[]>([]);
@@ -66,8 +66,8 @@ function App() {
       }
       if (m.type === 'catalog') { setSets(m.sets || []); setItems(m.items); if (m.palettes) setPalettes(m.palettes); setKeyReady(m.keyReady); if (m.aiConfig) setAIConfig(m.aiConfig); }
       if (m.type === 'palette-saved') { setTransientPalette(null); setPaletteId(m.id); pendingPaletteSave.current?.resolve(m.palette); pendingPaletteSave.current = null; setNotice('Палитра сохранена в этом файле Figma'); }
-      if (m.type === 'error') { pendingPaletteSave.current?.reject(new Error(m.message)); pendingPaletteSave.current = null; pendingInput.current = null; keyRequested.current = false; setError(m.message); setBusy(''); }
-      if (m.type === 'needs-key') { keyRequested.current = true; setSettings(true); setBusy(''); }
+      if (m.type === 'error') { pendingPaletteSave.current?.reject(new Error(m.message)); pendingPaletteSave.current = null; pendingInput.current = null; keyRequested.current = false; setSettings(mode => mode === 'generate' ? 'manual' : mode); setError(m.message); setBusy(''); }
+      if (m.type === 'needs-key') { keyRequested.current = Boolean(pendingInput.current); setSettings(keyRequested.current ? 'generate' : 'manual'); setBusy(''); }
       if (m.type === 'prompt-result') { pendingInput.current = null; setPromptResult(m.directions); setNotice(m.warnings?.join('. ') || ''); }
       if (m.type === 'idle') { if (resumeOnIdle.current && pendingInput.current) { resumeOnIdle.current = false; command('generate-prompt', { input: pendingInput.current }, 'Подбираем идеи и создаём композиции…'); } else setBusy(''); }
       if (m.type === 'draft') { setDraft(m.items); setCanSplit(m.canSplit); setSkipped(m.skipped); }
@@ -78,7 +78,7 @@ function App() {
       if (m.type === 'scene') { setScene(`Создано вариантов: ${m.variants} · ${m.width} × ${m.height}`); setGeneration(value => value + 1); setNotice(m.warnings?.join('. ') || ''); }
       if (m.type === 'layer-order') setScene(`Упорядочено композиций: ${m.count}. Предметы расположены по глубине сцены.`);
       if (m.type === 'notice') setNotice(m.message);
-      if (m.type === 'ai-configured') { setModelCatalog(savedModels.current); setAIConfig(m.config); setKeyReady(m.ready); setSettings(false); setNotice('Подключение AI сохранено'); if (m.ready && keyRequested.current && pendingInput.current) { keyRequested.current = false; resumeOnIdle.current = true; } }
+      if (m.type === 'ai-configured') { setModelCatalog(savedModels.current); setAIConfig(m.config); setKeyReady(m.ready); setSettings(null); setNotice('Подключение AI сохранено'); if (m.ready && keyRequested.current && pendingInput.current) { keyRequested.current = false; resumeOnIdle.current = true; } }
       if (m.type === 'download') {
         const url = URL.createObjectURL(new Blob([m.data], { type: m.mime }));
         const a = document.createElement('a'); a.href = url; a.download = m.name; a.click();
@@ -121,14 +121,14 @@ function App() {
   function selectText(query: string) {
     const found = resolveNames(query, currentItems);
     if (found.ids.length && !found.missing.length) { setSelected(found.ids.slice(0, 8)); setNotice('Элементы найдены в текущем наборе'); return; }
-    if (!keyReady) { setError('Для подбора по смыслу настройте AI. Можно также выбрать элементы вручную'); setSettings(true); return; }
+    if (!keyReady) { setError('Для подбора по смыслу настройте AI. Можно также выбрать элементы вручную'); setSettings('manual'); return; }
     command('ai', { setId: activeId, query }, 'Подбираем элементы…');
   }
 
   return <div className="app">
-    <header><div><span className="brand">Mixer</span><span className="version">Композиции из вашей графики</span></div><button className="connection icon-button" disabled={Boolean(busy)} aria-label="Настройки AI" title={keyReady ? 'Модель: ' + aiConfig.model : 'Настройки AI'} onClick={() => setSettings(v => !v)}><Icon name="settings" /></button></header>
+    <header><div><span className="brand">Mixer</span><span className="version">Композиции из вашей графики</span></div><button className="connection icon-button" disabled={Boolean(busy)} aria-label="Настройки AI" title={keyReady ? 'Модель: ' + aiConfig.model : 'Настройки AI'} onClick={() => setSettings('manual')}><Icon name="settings" /></button></header>
     {paletteOpen && <PaletteManager palettes={availablePalettes} selected={paletteId === 'auto' ? 'purple' : paletteId} items={previewItems} scene={null} busy={Boolean(busy)} error={error} select={usePalette} apply={usePalette} save={savePalette} exportPalette={id => command('export-palette', { id }, 'Экспортируем палитру…')} close={() => setPaletteOpen(false)} />}
-    <Panel open={settings} title="Подключение AI" close={() => { pendingInput.current = null; keyRequested.current = false; resumeOnIdle.current = false; setSettings(false); }}>{settings && <AISettings initialModels={modelCatalog} loadModels={loadModels} current={aiConfig} ready={keyReady} busy={Boolean(busy)} error={error} save={(config, models) => { savedModels.current = models; command('configure-ai', { config }, 'Сохраняем подключение…'); }} />}</Panel>
+    <Panel open={settings !== null} title="Подключение AI" close={() => { pendingInput.current = null; keyRequested.current = false; resumeOnIdle.current = false; setSettings(null); }}>{settings && <AISettings resumeGeneration={settings === 'generate'} initialModels={modelCatalog} loadModels={loadModels} current={aiConfig} ready={keyReady} busy={Boolean(busy)} error={error} save={(config, models) => { savedModels.current = models; command('configure-ai', { config }, 'Сохраняем подключение…'); }} />}</Panel>
     <main ref={main} className={view === 'generate' ? 'compose-view' : undefined}>
       {error && <div role="alert" className="message error">{error}</div>}
       {notice && <div role="status" className="message">{notice}</div>}

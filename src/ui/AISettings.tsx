@@ -6,7 +6,7 @@ import { FieldHelp } from './FieldHelp';
 import { EditableModelSelect } from './EditableModelSelect';
 import './ai-settings.css';
 
-export function AISettings({ current, ready, busy, error, save, loadModels, initialModels }: { current: AIConfig; ready: boolean; busy: boolean; error: string; save: (config: AIConfig & { apiKey: string }, models: string[]) => void; initialModels: string[]; loadModels: (config: AIConfig & { apiKey: string }) => Promise<string[]> }) {
+export function AISettings({ current, ready, busy, error, save, loadModels, initialModels, resumeGeneration }: { current: AIConfig; ready: boolean; busy: boolean; error: string; save: (config: AIConfig & { apiKey: string }, models: string[]) => void; initialModels: string[]; loadModels: (config: AIConfig & { apiKey: string }) => Promise<string[]>; resumeGeneration: boolean }) {
   const [draft, setDraft] = useState(current), [key, setKey] = useState(''), [localError, setLocalError] = useState('');
   const baseId = useId(), modelId = useId(), keyId = useId();
   const [models, setModels] = useState(initialModels), [modelsLoading, setModelsLoading] = useState(false), [modelsError, setModelsError] = useState('');
@@ -37,6 +37,6 @@ export function AISettings({ current, ready, busy, error, save, loadModels, init
 
     </div></div>
     <div className="ai-setting-field"><span className="ai-field-label"><label htmlFor={keyId}>API-ключ</label><FieldHelp label="Что такое API-ключ?">Ключ доступа выдаёт выбранный сервис в своём личном кабинете. Вставьте его целиком. Mixer использует ключ для запросов и хранит только до закрытия плагина.</FieldHelp></span><input id={keyId} aria-label="API-ключ" type="password" autoComplete="off" disabled={busy} value={key} placeholder={ready && sameTarget ? 'Ключ задан · оставьте пустым, чтобы сохранить' : 'Ключ выбранного сервиса'} onChange={event => { resetModels(); setKey(event.target.value); }} /></div>
-    <button className="primary panel-done with-icon" disabled={busy || !draft.model.trim() || !draft.baseUrl.trim() || (!key.trim() && !(ready && sameTarget))} onClick={submit}><Icon name="key" />Сохранить</button>
+    <button className="primary panel-done with-icon" disabled={busy || !draft.model.trim() || !draft.baseUrl.trim() || (!key.trim() && !(ready && sameTarget))} onClick={submit}><Icon name="key" />{resumeGeneration ? 'Сохранить и сгенерировать' : 'Сохранить'}</button>
   </div>;
 }

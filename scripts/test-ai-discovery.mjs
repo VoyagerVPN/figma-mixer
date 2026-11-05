@@ -98,7 +98,7 @@ try {
   await page.getByRole('button', { name: 'Получить список моделей', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'вручную' }).waitFor();
   await page.getByRole('combobox', { name: 'Модель', exact: true }).fill('manual-chat-model');
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.getByRole('button', { name: 'Сохранить и сгенерировать', exact: true }).click();
   await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Командная работа');
   console.log('OK недоступный список оставляет ручной ввод и не отменяет исходную генерацию');

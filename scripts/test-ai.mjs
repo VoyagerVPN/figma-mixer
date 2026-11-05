@@ -181,7 +181,9 @@ try {
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor();
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
-  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  const saveAndGenerate = page.getByRole('button', { name: 'Сохранить и сгенерировать', exact: true });
+  assert.equal(await saveAndGenerate.isEnabled(), true);
+  await saveAndGenerate.click();
   await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Сложная задача и новые идеи');
   console.log('OK подключение ключа продолжает исходный запрос без повторного ввода');
