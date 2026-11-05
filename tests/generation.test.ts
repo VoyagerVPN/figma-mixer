@@ -28,6 +28,36 @@ test('один AI-запрос подбирает разные составы и
   expect(sent.response_format).toEqual({ type: 'json_object' });
 });
 
+test('для запроса «книга фоном» модель получает правило фоновой роли, а генератор получает её для каждого варианта', async () => {
+  const book = items[0];
+  const catalog: Item[] = [{
+    ...book,
+    name: 'Книга',
+    variants: [...book.variants, { ...book.variants[0], role: 'background', nodeId: 'book-bg' }]
+  }, ...items.slice(1)];
+  const planned = [
+    { ...directions[0], heroId: 'lamp', backgroundIds: ['book'] },
+    { ...directions[1], backgroundIds: ['book'] },
+    { ...directions[1], ids: ['book', 'lamp', 'phone'], backgroundIds: ['book'] }
+  ];
+  const renderedRoles: string[][] = [];
+  const result = await generateCompositions({ ...input, mode: 'metaphor', query: 'Книга фоном', count: 3 }, catalog, builtInPalettes, connection, {
+    create: async ({ backgroundIds }) => {
+      renderedRoles.push(backgroundIds ?? []);
+      return { frameIds: [`frame-${renderedRoles.length}`] };
+    },
+    removeGenerated: async () => {}
+  }, async (_url, options) => {
+    const { messages } = JSON.parse(String(options?.body));
+    expect(messages[1].content).toBe('Книга фоном');
+    expect(messages[0].content).toContain('"name":"Книга","canBackground":true');
+    expect(messages[0].content).toMatch(/«книга фоном»[^\n]+в каждом варианте[^\n]+ids и backgroundIds/u);
+    return response({ directions: planned })();
+  });
+  expect(result.frameIds).toHaveLength(3);
+  expect(renderedRoles).toEqual([['book'], ['book'], ['book']]);
+});
+
 test('фиксированная палитра обязательна; явные названия с фиксированной палитрой работают локально', async () => {
   await expect(planWithAI({ ...input, palette: 'purple' }, items, builtInPalettes, connection, response({ directions }))).rejects.toThrow('палитру');
   const local = await planWithAI({ ...input, query: 'book, lamp', palette: 'peach' }, items, builtInPalettes, { ...connection, apiKey: '' }, async () => { throw new Error('Запрос не должен выполняться'); });
