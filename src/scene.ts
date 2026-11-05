@@ -1,4 +1,4 @@
-import { chooseSceneVariant, sceneBackgroundIds, sceneLayerOrder, validateSceneBatch } from './core';
+import { chooseSceneVariant, sceneBackgroundIds, validateSceneBatch } from './core';
 import { builtInPalettes, paletteBackground, paletteColor, resolvePalette, validatePalette } from './palettes';
 import { composeScene } from './composition';
 import type { ArtworkProfile } from './artwork';
@@ -139,39 +139,6 @@ export class SceneRenderer {
       });
       return { svg: await copy.exportAsync({ format: 'SVG_STRING', svgIdAttribute: true, svgOutlineText: true }), name: source.name, backgroundIndex };
     } finally { copy.remove(); }
-  }
-
-  reorder(items: Item[]) {
-    const frames = new Map<string, FrameNode>();
-    for (const selected of figma.currentPage.selection) {
-      let node: BaseNode | null = selected;
-      while (node && node.type !== 'DOCUMENT' && !node.getPluginData('mixer-scene')) node = node.parent;
-      if (node?.type === 'FRAME') frames.set(node.id, node);
-    }
-    if (!frames.size) { const frame = this.selected(); frames.set(frame.id, frame); }
-    for (const frame of frames.values()) {
-      const options = JSON.parse(frame.getPluginData('mixer-scene')) as SceneOptions;
-      const children = [...frame.children];
-      const subjects = children.filter(n => n.getPluginData('mixer-source'));
-      const manualOrder = options.layerOrder?.flatMap(id => subjects.filter(node => node.getPluginData('mixer-source') === id).map(node => node.id));
-      const order = sceneLayerOrder(subjects.map(node => {
-        const sourceId = node.getPluginData('mixer-source');
-        const role = node.getPluginData('mixer-role');
-        // В старых композициях роль отдельно не записывалась.
-        const legacyBackground = !role && sceneBackgroundIds(options).includes(sourceId) &&
-          items.find(item => item.id === sourceId)?.variants.some(v => v.role === 'background');
-        return { id: node.id, x: node.x, y: node.y, width: node.width, height: node.height, background: role === 'background' || !!legacyBackground };
-      }), manualOrder);
-      const byId = new Map(subjects.map(node => [node.id, node]));
-      const planes = children.filter(n => n.getPluginData('mixer-backdrop'));
-      let cursor = 0;
-      const sorted = [...planes, ...children.filter(n => !n.getPluginData('mixer-backdrop')).map(node =>
-        node.getPluginData('mixer-source') ? byId.get(order[cursor++])! : node
-      )];
-      sorted.forEach((node, index) => frame.insertChild(index, node));
-    }
-    figma.commitUndo();
-    return frames.size;
   }
 
   applyPalette(input: string | Palette, backgroundColor?: string) {

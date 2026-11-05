@@ -1,13 +1,13 @@
 import { expect, test } from 'vitest';
-import { resolveNames, layoutScene, validateSelection, validateSceneBatch, chooseSceneVariant, backgroundPlaneColor, sceneLayerOrder, sceneBackgroundIds } from '../src/core';
+import { resolveItemList, layoutScene, validateSelection, validateSceneBatch, chooseSceneVariant, backgroundPlaneColor, sceneLayerOrder, sceneBackgroundIds } from '../src/core';
 import palettes from '../src/assets/palettes.json';
 
 test('находит предметы по названиям и не подменяет отсутствующий предмет', () => {
-  const result = resolveNames('книга, лампа, самолёт', [
+  const { ids, missing } = resolveItemList('книга, лампа, самолёт', [
     { id: 'book', name: 'Книга', description: 'Чтение' },
     { id: 'lamp', name: 'Лампа', description: 'Идея' }
   ]);
-  expect(result).toEqual({ ids: ['book', 'lamp'], missing: ['самолёт'] });
+  expect({ ids, missing }).toEqual({ ids: ['book', 'lamp'], missing: ['самолёт'] });
 });
 
 test('число вариантов задаётся пользователем, ошибочный размер или дробное количество отклоняются', () => {

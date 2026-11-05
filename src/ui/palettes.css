@@ -67,20 +67,6 @@
 .palette-confirm>h2{font-size:14px}
 .palette-confirm>p{font-size:12px;line-height:18px;margin:6px 0 12px}
 .palette-confirm .palette-footer-actions{flex-wrap:wrap}
-.palette-quick-list{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-height:104px;overflow:auto;gap:6px}
-.palette-quick{display:flex;align-items:center;gap:8px;min-width:0;padding:8px;font-size:12px;text-align:left}
-.palette-quick[aria-pressed=true]{border-color:#77777f;background:var(--raised)}
-.palette-quick>span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.palette-quick .palette-swatches{display:flex;gap:0;width:60px;height:20px;overflow:hidden;border:1px solid var(--line);border-radius:3px;flex-shrink:0}
-.palette-quick .palette-swatches i{flex:1;width:auto;height:100%;border-radius:0}
-.background-field{margin-top:12px}
-.background-field>.field-caption{display:block;font-size:12px;color:var(--secondary)}
-.background-colors{display:flex;align-items:center;gap:8px;margin-top:8px}
-.background-colors button{display:flex;align-items:center;justify-content:center;gap:4px;min-width:48px;height:36px;padding:4px 6px}
-.background-colors button[aria-pressed=true]{border-color:#77777f}
-.background-colors .color-chip{width:24px;height:24px}
-.background-colors .ui-icon{width:12px;height:12px}
-.color-edit::before{content:none}
 @media(min-width:640px){.palette-pairs{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){
 .palette-panel>.panel-body{padding:12px 16px}

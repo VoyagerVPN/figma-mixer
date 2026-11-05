@@ -109,7 +109,13 @@ try {
   assert.equal(generated.directions.every(p => p.ids.includes('starter-2')), true);
   assert.equal(new Set(generated.directions.map(p => [...p.ids].sort().join(','))).size, 3);
   await page.screenshot({ path: resolve(output, 'result.png') });
-  console.log('OK параметры в поле запроса → один запрос → разные составы → результат на том же экране');
+  const [svgDownload] = await Promise.all([
+    page.waitForEvent('download', { timeout: 5000 }),
+    page.getByRole('button', { name: 'Экспорт SVG', exact: true }).click({ timeout: 2000 })
+  ]);
+  assert.equal(svgDownload.suggestedFilename(), 'mixer-composition.svg');
+  assert.match(await readFile(await svgDownload.path(), 'utf8'), /<path\b/);
+  console.log('OK параметры запроса → разные составы → результат и скачивание SVG на том же экране');
   await palette.click();
   await page.getByRole('option', { name: 'Персик', exact: true }).click();
   await aspect.click();

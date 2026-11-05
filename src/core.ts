@@ -52,11 +52,6 @@ export function resolveItemList(input: string, catalog: CatalogItem[], allowBack
   return { ids: [...new Set(ranges.map(range => range.id))], backgroundIds: [...backgroundIds], missing, ranges };
 }
 
-export function resolveNames(input: string, catalog: CatalogItem[]) {
-  const { ids, missing } = resolveItemList(input, catalog, false);
-  return { ids, missing };
-}
-
 export function resolveItemMentions(input: string, catalog: CatalogItem[]) {
   const ranges: { id: string; start: number; end: number }[] = [];
   const missing: string[] = [];

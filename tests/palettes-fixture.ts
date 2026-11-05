@@ -23,7 +23,7 @@ const items = library.map(item => {
   return { ...item, setId: 'starter', preview: source.svg, variants: item.variants.map((v, i) => ({ ...v, nodeId: item.id + i, width: source.width, height: source.height })) };
 });
 const send = (message: unknown) => window.postMessage({ pluginMessage: message }, '*');
-let created = false, starterPresent = !new URLSearchParams(location.search).has('empty');
+let starterPresent = !new URLSearchParams(location.search).has('empty');
 let imported: typeof items = [], importedName = '';
 let createFailed = false;
 let keyReady = new URLSearchParams(location.search).has('connected');
@@ -53,7 +53,12 @@ window.addEventListener('message', event => {
       if (m.input.setId === 'starter') { starterPresent = true; catalog(); }
       const selected = m.input.setId === 'starter' ? items : imported;
       const result = await generateCompositions(m.input, selected, store.all(), connection, {
-        create: async options => { document.documentElement.dataset.created = JSON.stringify(options); return { frameIds: ['frame-' + options.variant] }; },
+        create: async options => {
+          if (new URLSearchParams(location.search).has('create-error') && !createFailed) {
+            createFailed = true;
+            throw new Error('Тестовая ошибка генерации');
+          }
+          document.documentElement.dataset.created = JSON.stringify(options); return { frameIds: ['frame-' + options.variant] }; },
         removeGenerated: async () => {}
       }, async (url, options) => {
         document.documentElement.dataset.aiRequest = JSON.stringify({ url, body: JSON.parse(String(options?.body)) });
@@ -77,18 +82,15 @@ window.addEventListener('message', event => {
     imported = m.items.map((item: any, index: number) => ({ ...item, id: 'imported-' + index, origin: 'custom', setId: 'imported', variants: item.variants.map((v: any) => ({ ...v, nodeId: 'imported-' + index, width: 80, height: 80 })) }));
     catalog(); send({ type: 'saved-set', setId: 'imported' }); send({ type: 'idle' });
   }
-  if (m?.type === 'preview-palette') { send({ type: 'palette-preview', preview: created ? { svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#D7CDF5"/><path d="M100 100H900V500H100Z" fill="#F9ECB0"/></svg>', name: 'Композиция', backgroundIndex: 0 } : null }); send({ type: 'idle' }); }
   if (m?.type === 'save-palette') {
     try { if (new URLSearchParams(location.search).has('palette-save-error')) throw new Error('Тестовая ошибка сохранения палитры'); const saved = store.save(m.palette); catalog(); send({ type: 'palette-saved', id: saved.id, palette: saved }); }
     catch (error) { send({ type: 'error', message: String(error) }); }
     send({ type: 'idle' });
   }
+  if (m?.type === 'export' && document.documentElement.dataset.promptResult) {
+    send({ type: 'download', name: 'mixer-composition.svg', data: '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0h1v1Z"/></svg>', mime: 'image/svg+xml' });
+    send({ type: 'idle' });
+  }
   if (m?.type === 'export-palette') { send({ type: 'download', name: 'mixer-palette.json', data: store.export(m.id), mime: 'application/json' }); send({ type: 'idle' }); }
   if (m?.type === 'palette') { document.documentElement.dataset.applied = JSON.stringify(m); send({ type: 'palette-applied' }); send({ type: 'idle' }); }
-  if (m?.type === 'create') {
-    if (new URLSearchParams(location.search).has('create-error') && !createFailed) { createFailed = true; send({ type: 'error', message: 'Тестовая ошибка генерации' }); send({ type: 'idle' }); return; }
-    created = true;
-    document.documentElement.dataset.created = JSON.stringify(m.options);
-    send({ type: 'scene', variants: m.options.count, width: m.options.width, height: m.options.height }); send({ type: 'idle' });
-  }
 });

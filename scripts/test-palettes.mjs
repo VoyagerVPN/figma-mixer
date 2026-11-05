@@ -24,7 +24,16 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const button = name => page.getByRole('button', { name, exact: true });
 const panel = page.getByRole('dialog', { name: 'Оформление композиции', exact: true });
 const hex = page.getByRole('textbox', { name: 'HEX замены', exact: true });
-async function compose() { await button('Выбрать предметы вручную').click(); for (const name of ['Пазлы', 'Книга', 'Телефон']) await button(name).click(); await button('К параметрам').click(); }
+const paletteSelect = page.getByRole('combobox', { name: 'Палитра', exact: true });
+async function choosePalette(name) {
+  await paletteSelect.click();
+  await page.getByRole('option', { name, exact: true }).click();
+}
+async function compose() {
+  await button('Предметы').click();
+  await page.getByRole('textbox', { name: 'Названия предметов', exact: true }).fill('Пазлы, Книга, Телефон');
+}
+async function openPalettes() { await choosePalette('Настроить палитры…'); }
 async function color(source, value) { await button('Заменить цвет ' + source).click(); await hex.fill(value); await hex.press('Enter'); }
 async function library() { await button('Выбор палитры').click(); }
 async function visibleFooter() {
@@ -33,7 +42,7 @@ async function visibleFooter() {
   const use = button('Использовать'); if (await use.count()) assert.ok(await use.isVisible());
 }
 try {
-  await page.goto(base); await compose(); await button('Палитры').click();
+  await page.goto(base); await compose(); await openPalettes();
   await page.getByRole('slider', { name: 'Оттенок и насыщенность замены', exact: true }).waitFor();
   assert.equal(await page.getByRole('group', { name: 'Фон и предметы', exact: true }).getByRole('button').count(), 3);
   assert.equal(await page.getByRole('group', { name: 'Только предметы', exact: true }).getByRole('button').count(), 5);
@@ -42,7 +51,7 @@ try {
   await button('Заменить цвет #F9ECB0').click();
   await button('Закрыть панель').click();
   assert.equal(await panel.count(), 0, 'Выбор цвета без изменения не создаёт несохранённую палитру');
-  await button('Палитры').click();
+  await openPalettes();
   await library(); await button('Создать палитру').click();
   await color('#F9ECB0', '#FF0000');
   assert.ok((await page.locator('.palette-composition img').getAttribute('src')).includes('FF0000'));
@@ -61,28 +70,28 @@ try {
   await button('Закрыть панель').click(); await button('Сохранить').click();
   await page.getByLabel('Название палитры', { exact: true }).fill('Авторская');
   await button('Сохранить').click(); await panel.waitFor({ state: 'detached' });
-  await button('Палитра Авторская').waitFor();
+  assert.ok((await paletteSelect.innerText()).includes('Авторская'));
   assert.equal(await page.locator('html').getAttribute('data-palette-window'), 'false');
-  await button('Создать варианты').click();
-  await page.getByRole('heading', { name: 'Композиции на холсте', exact: true }).waitFor();
+  await button('Создать композиции').click();
+  await page.getByRole('heading', { name: 'Создано вариантов: 1', exact: true }).waitFor();
   const options = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.ok(options.palette.startsWith('custom-')); assert.equal(options.backgroundColor, '#D7CDF5');
   console.log('OK постоянный редактор, группы цветов, селектор черновика, защита закрытия и смены, сохранение с названием → генерация');
 
-  await button('Создать ещё варианты').click(); await button('Палитры').click();
+  await openPalettes();
   await hex.fill('zzzzz'); await hex.press('Tab');
   assert.equal(await button('Использовать').isDisabled(), true);
   await button('Заменить цвет #F9ECB0').click();
   assert.equal(await button('Использовать').isEnabled(), true);
   await color('#D7CDF5', '#152535'); await button('Использовать').click();
-  await button('Создать варианты').click();
-  await page.getByRole('heading', { name: 'Композиции на холсте', exact: true }).waitFor();
+  await button('Создать композиции').click();
+  await page.getByRole('heading', { name: 'Создано вариантов: 1', exact: true }).waitFor();
   const applied = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.equal(applied.palette, 'draft'); assert.equal(applied.paletteSnapshot.background[0], '#152535');
   assert.equal(await page.locator('html').getAttribute('data-applied'), null);
   console.log('OK неправильный HEX блокирует применение; использование несохранённого снимка не перекрашивает старые сцены');
 
-  await page.reload(); await compose(); await button('Палитра Авторская').click(); await button('Палитры').click();
+  await page.reload(); await compose(); await choosePalette('Авторская'); await openPalettes();
   await color('#F9A3AA', '#345678'); await button('Сохранить изменения').click();
   await page.getByLabel('Название палитры', { exact: true }).fill('Авторская обновлённая');
   await button('Сохранить').click();
@@ -105,10 +114,10 @@ try {
   await page.getByLabel('Название палитры', { exact: true }).fill('Импортированная'); await button('Сохранить').click();
   await page.getByRole('status').filter({ hasText: 'Палитра готова к использованию' }).waitFor();
   await button('Использовать').click(); await page.reload(); await compose();
-  await button('Палитра Импортированная').waitFor();
+  await choosePalette('Импортированная');
   console.log('OK неправильный импорт не меняет палитру; импорт и сохранение переживают повторный запуск');
 
-  await button('Палитры').click();
+  await openPalettes();
   await color('#181817', '#FF0000');
   const colorField = page.getByRole('slider', { name: 'Оттенок и насыщенность замены', exact: true });
   const brightness = page.getByRole('slider', { name: 'Яркость замены', exact: true });
@@ -131,7 +140,7 @@ try {
   await page.keyboard.press('Escape'); await panel.waitFor({ state: 'detached' });
   console.log('OK поле Sparkshot, клавиатура и перенос за край; явный отказ от изменений при переключении');
 
-  await page.setViewportSize({ width: 400, height: 760 }); await button('Палитры').click();
+  await page.setViewportSize({ width: 400, height: 760 }); await openPalettes();
   const narrowBody = await panel.locator('.panel-body').evaluate(node => ({ scroll: node.scrollHeight, visible: node.clientHeight }));
   assert.ok(narrowBody.scroll <= narrowBody.visible, 'В окне 400 × 760 редактор помещается без прокрутки: ' + JSON.stringify(narrowBody));
   await visibleFooter();
@@ -146,7 +155,7 @@ try {
   await page.getByRole('alertdialog', { name: 'Сохранить изменения палитры?', exact: true }).waitFor();
   await page.keyboard.press('Escape');
   assert.equal(await hex.inputValue(), '#332211');
-  await button('Закрыть панель').click(); await button('Не сохранять').click(); await button('Палитры').click();
+  await button('Закрыть панель').click(); await button('Не сохранять').click(); await openPalettes();
   await page.setViewportSize({ width: 400, height: 520 });
   await panel.locator('.panel-body').evaluate(node => { node.scrollTop = node.scrollHeight; });
   await visibleFooter(); assert.equal(await page.getByRole('slider', { name: 'Яркость замены' }).isVisible(), true);
@@ -156,7 +165,7 @@ try {
   await button('Закрыть панель').click();
   console.log('OK адаптация 400 px и низкое окно: независимый футер, выделение только в полях');
 
-  await page.goto(base + '?palette-many'); await compose(); await button('Палитры').click(); await library();
+  await page.goto(base + '?palette-many'); await compose(); await openPalettes(); await library();
   await button('Выбрать палитру: Набор 24').scrollIntoViewIfNeeded();
   await button('Выбрать палитру: Набор 24').click();
   assert.ok((await button('Выбор палитры').innerText()).includes('Набор 24'));
@@ -170,7 +179,7 @@ try {
   await button('Закрыть панель').click();
   console.log('OK длинный селектор в низком окне: выбор последней палитры, тонкая прокрутка, закрытие снаружи');
 
-  await page.goto(base + '?palette-save-error'); await compose(); await button('Палитры').click();
+  await page.goto(base + '?palette-save-error'); await compose(); await openPalettes();
   await color('#D7CDF5', '#123456'); await button('Сохранить палитру').click();
   await page.getByLabel('Название палитры', { exact: true }).fill('Не потерять');
   await button('Сохранить').click();
