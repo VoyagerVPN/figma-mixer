@@ -56,11 +56,13 @@ window.addEventListener('message', event => {
         removeGenerated: async () => {}
       }, async (url, options) => {
         document.documentElement.dataset.aiRequest = JSON.stringify({ url, body: JSON.parse(String(options?.body)) });
+        const required: string[] = m.input.requiredItemIds || [];
         const combinations: string[][] = [];
         for (let a = 0; a < selected.length; a++) for (let b = a + 1; b < selected.length; b++) combinations.push([selected[a].id, selected[b].id]);
         combinations.push(...selected.map(item => [item.id]));
+        const eligible = combinations.map(ids => [...new Set([...required, ...ids])].slice(0, 8));
         const candidates = m.input.palette === 'auto' ? store.all() : [{ id: m.input.palette }];
-        const directions = Array.from({ length: m.input.count }, (_, index) => ({ title: 'Идея ' + (index + 1), ids: combinations[index % combinations.length], palette: candidates[index % candidates.length].id, backgroundIndex: index % 3, style: 'balanced', heroId: '', backgroundIds: [], explanation: 'Предметы раскрывают тему с разных сторон.' }));
+        const directions = Array.from({ length: m.input.count }, (_, index) => ({ title: 'Идея ' + (index + 1), ids: eligible[index % eligible.length], palette: candidates[index % candidates.length].id, backgroundIndex: index % 3, style: 'balanced', heroId: '', backgroundIds: [], explanation: 'Предметы раскрывают тему с разных сторон.' }));
         if (new URLSearchParams(location.search).has('ai-error')) directions[0].ids = ['invented'];
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ directions }) } }] }));
       });
@@ -68,7 +70,7 @@ window.addEventListener('message', event => {
     } catch (error) { send({ type: error instanceof AIKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : String(error) }); }
     finally { send({ type: 'idle' }); }
   })();
-  if (m?.type === 'starter') { starterPresent = true; catalog(); send({ type: 'open-set', setId: 'starter' }); send({ type: 'idle' }); }
+  if (m?.type === 'starter') { starterPresent = true; catalog(); if (!m.stay) send({ type: 'open-set', setId: 'starter' }); send({ type: 'idle' }); }
   if (m?.type === 'save-set') {
     importedName = m.name;
     imported = m.items.map((item: any, index: number) => ({ ...item, id: 'imported-' + index, origin: 'custom', setId: 'imported', variants: item.variants.map((v: any) => ({ ...v, nodeId: 'imported-' + index, width: 80, height: 80 })) }));

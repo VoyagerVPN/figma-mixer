@@ -21,8 +21,7 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true, env: 
 const page = await browser.newPage({ viewport: { width: 520, height: 840 } }), errors = [];
 page.setDefaultTimeout(4000); page.on('pageerror', error => errors.push(error.message));
 const base = `http://127.0.0.1:${server.address().port}`;
-async function openAdvanced() { const button = page.getByRole('button', { name: 'Параметры вывода', exact: true }); if (await button.getAttribute('aria-expanded') === 'false') await button.click(); }
-async function openManual() { await openAdvanced(); await page.getByRole('button', { name: 'Выбрать предметы вручную', exact: true }).click(); }
+async function openManual() { await page.getByRole('button', { name: 'Выбрать предметы вручную', exact: true }).click(); }
 async function own() { await page.getByRole('combobox', { name: 'Библиотека', exact: true }).click(); await page.getByRole('option', { name: 'Добавить свои элементы…', exact: true }).click(); }
 try {
   await page.goto(base);
@@ -78,7 +77,7 @@ try {
   assert.equal(await page.getByRole('button', { name: 'Ручка', exact: true }).isEnabled(), true);
   await page.getByRole('button', { name: 'К параметрам', exact: true }).click();
   await page.getByRole('button', { name: 'Источники', exact: true }).click();
-  await openAdvanced(); await page.getByRole('button', { name: 'Управление библиотеками', exact: true }).click();
+  await page.getByRole('button', { name: 'Управление библиотеками', exact: true }).click();
   await page.getByRole('button', { name: 'Стартовый набор Элементов: 10', exact: true }).click();
   assert.equal(await page.getByRole('checkbox', { name: 'Объединить Книга', exact: true }).isVisible(), true);
   await page.getByRole('button', { name: 'Открыть элемент Книга', exact: true }).click();

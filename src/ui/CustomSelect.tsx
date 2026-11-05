@@ -2,7 +2,7 @@ import { useId, useRef, useState } from 'react';
 import * as Select from '@radix-ui/react-select';
 import { Icon, type IconName } from './Icon';
 
-type Option<T extends string> = { value: T; label: string; icon?: IconName; colors?: string[] };
+type Option<T extends string> = { value: T; label: string; shortLabel?: string; icon?: IconName; colors?: string[] };
 type Props<T extends string> = {
   label: string;
   ariaLabel?: string;
@@ -15,13 +15,14 @@ type Props<T extends string> = {
 export function CustomSelect<T extends string>({ label, ariaLabel, value, options, onChange, disabled }: Props<T>) {
   const id = useId();
   const trigger = useRef<HTMLButtonElement>(null), [open, setOpen] = useState(false);
+  const selected = options.find(option => option.value === value);
   // Префикс позволяет сохранить пустое значение «Создать новый набор».
   const encode = (value: string) => 'value:' + value;
   return <div className="select-field">
     <label htmlFor={id}>{label}</label>
     <Select.Root open={open} onOpenChange={setOpen} value={encode(value)} onValueChange={next => onChange(next.slice(6) as T)} disabled={disabled}>
-      <Select.Trigger ref={trigger} id={id} className="select-trigger" aria-label={ariaLabel || label}>
-        <Select.Value />
+      <Select.Trigger ref={trigger} id={id} className="select-trigger" aria-label={ariaLabel || label} title={selected?.shortLabel ? selected.label : undefined}>
+        <Select.Value>{selected?.shortLabel}</Select.Value>
         <Select.Icon className="select-chevron"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="m3 4.5 3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg></Select.Icon>
       </Select.Trigger>
       <Select.Portal container={trigger.current?.closest('dialog') || undefined}>

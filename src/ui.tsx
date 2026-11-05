@@ -38,7 +38,7 @@ function App() {
   const [scene, setScene] = useState('');
   const [generation, setGeneration] = useState(0);
   const [palettes, setPalettes] = useState<NamedPalette[]>(builtInPalettes), [paletteId, setPaletteId] = useState('auto'), [paletteOpen, setPaletteOpen] = useState(false);
-  const [promptDraft, setPromptDraft] = useState<PromptDraft>({ query: '', format: '1200x630', count: 3, detail: 'default' }), [promptResult, setPromptResult] = useState<Direction[]>([]);
+  const [promptDraft, setPromptDraft] = useState<PromptDraft>({ query: '', requiredItemIds: [], format: '1200x630', count: 3, detail: 'default' }), [promptResult, setPromptResult] = useState<Direction[]>([]);
   const pendingInput = useRef<GenerationInput | null>(null);
   const keyRequested = useRef(false);
   const [transientPalette, setTransientPalette] = useState<NamedPalette | null>(null);
@@ -93,7 +93,14 @@ function App() {
   function choosePromptPalette(id: string) { if (id === '__manage__') { if (!(activeId || '') && !currentItems.length) { importDestination.current = 'home'; command('starter', {}, 'Готовим библиотеку для предпросмотра…'); } openPalettes(); return; } setPaletteId(id); if (id !== 'draft') setTransientPalette(null); }
   function generatePrompt() {
     const [width, height] = promptDraft.format.split('x').map(Number);
-    const input: GenerationInput = { query: promptDraft.query.trim(), setId: activeId || 'starter', palette: paletteId === 'original' ? 'purple' : paletteId, paletteSnapshot: paletteId === 'draft' ? transientPalette || undefined : undefined, width, height, count: promptDraft.count, detail: promptDraft.detail, variant: generation };
+    const input: GenerationInput = {
+      query: promptDraft.query.trim(),
+      requiredItemIds: promptDraft.requiredItemIds.filter(id => currentItems.some(item => item.id === id)),
+      setId: activeId || 'starter',
+      palette: paletteId === 'original' ? 'purple' : paletteId,
+      paletteSnapshot: paletteId === 'draft' ? transientPalette || undefined : undefined,
+      width, height, count: promptDraft.count, detail: promptDraft.detail, variant: generation
+    };
     pendingInput.current = input; command('generate-prompt', { input }, 'Подбираем идеи и создаём композиции…'); setGeneration(value => value + promptDraft.count);
   }
   function beginManual() {
@@ -123,7 +130,13 @@ function App() {
       {error && <div role="alert" className="message error">{error}</div>}
       {notice && <div role="status" className="message">{notice}</div>}
       {busy && <div role="status" className="progress">{busy}</div>}
-      {view === 'home' && <GenerationStart sets={sets} setId={activeId || 'starter'} palettes={availablePalettes} paletteId={paletteId} draft={promptDraft} result={promptResult} busy={Boolean(busy)} change={setPromptDraft} choose={id => { setActiveId(id); setPromptResult([]); }} choosePalette={choosePromptPalette} generate={generatePrompt} manual={beginManual} own={() => startImport('', true)} manage={() => setView('libraries')} finish={() => post('close')} />}
+      {view === 'home' && <GenerationStart sets={sets} setId={activeId || 'starter'} items={currentItems}
+        prepareItems={() => command('starter', { stay: true }, 'Подготавливаем библиотеку…')}
+        palettes={availablePalettes} paletteId={paletteId} draft={promptDraft} result={promptResult}
+        busy={Boolean(busy)} change={setPromptDraft}
+        choose={id => { setActiveId(id); setPromptResult([]); setPromptDraft(draft => ({ ...draft, requiredItemIds: [] })); }}
+        choosePalette={choosePromptPalette} generate={generatePrompt} manual={beginManual} own={() => startImport('', true)}
+        manage={() => setView('libraries')} finish={() => post('close')} />}
       {view === 'libraries' && <>
         <button className="back" onClick={() => setView('home')}><Icon name="arrow" />К генерации</button>
         <section className="home-intro"><h1>Библиотеки</h1><p className="intro">Объедините элементы в набор, затем создавайте из них варианты композиций.</p><div className="action-row"><button className="primary with-icon" disabled={Boolean(busy)} onClick={() => startImport()}><Icon name="plus" />Создать набор</button><button className="with-icon" disabled={Boolean(busy)} onClick={() => { startImport(); command('capture-selection', {}, 'Читаем выделение…'); }}><Icon name="selection" />Из выделения Figma</button></div></section>

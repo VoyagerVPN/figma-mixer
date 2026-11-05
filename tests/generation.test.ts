@@ -35,6 +35,27 @@ test('фиксированная палитра обязательна; явны
   expect(local.every(p => p.palette === 'peach')).toBe(true);
 });
 
+test('выбранный предмет передаётся по имени и требуется в каждом варианте по метафоре', async () => {
+  const tagged = { ...input, requiredItemIds: ['book'] };
+  let system = '';
+  const plan = await planWithAI(tagged, items, builtInPalettes, connection, async (_url, options) => {
+    system = JSON.parse(String(options?.body)).messages[0].content;
+    return response({ directions })();
+  });
+  expect(system).toContain('Обязательные предметы');
+  expect(system).toContain('"name":"book"');
+  expect(plan.every(p => p.ids.includes('book'))).toBe(true);
+  await expect(planWithAI(tagged, items, builtInPalettes, connection, response({
+    directions: [directions[0], { ...directions[1], ids: ['phone'] }]
+  }))).rejects.toThrow('обязательный предмет');
+});
+
+test('состав из одних плашек компонуется локально по идентификаторам', async () => {
+  const plan = await planWithAI({ ...input, query: '', requiredItemIds: ['lamp', 'book'] }, items, builtInPalettes, { ...connection, apiKey: '' },
+    async () => { throw new Error('Запрос не должен выполняться'); });
+  expect(plan.map(p => p.ids)).toEqual([['lamp', 'book'], ['lamp', 'book']]);
+});
+
 test('весь план проверяется перед созданием; при ошибке рендера удаляются только новые фреймы', async () => {
   const made: any[] = [], removed: string[][] = [];
   const renderer = { create: async (options: any) => { made.push(options); if (made.length === 2) throw new Error('Ошибка рендера'); return { frameIds: ['new-frame'] }; }, removeGenerated: async (ids: string[]) => { removed.push(ids); } };

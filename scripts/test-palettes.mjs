@@ -24,7 +24,7 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const button = name => page.getByRole('button', { name, exact: true });
 const panel = page.getByRole('dialog', { name: 'Оформление композиции', exact: true });
 const hex = page.getByRole('textbox', { name: 'HEX замены', exact: true });
-async function compose() { await button('Параметры вывода').click(); await button('Выбрать предметы вручную').click(); for (const name of ['Пазлы', 'Книга', 'Телефон']) await button(name).click(); await button('К параметрам').click(); }
+async function compose() { await button('Выбрать предметы вручную').click(); for (const name of ['Пазлы', 'Книга', 'Телефон']) await button(name).click(); await button('К параметрам').click(); }
 async function color(source, value) { await button('Заменить цвет ' + source).click(); await hex.fill(value); await hex.press('Enter'); }
 async function library() { await button('Выбор палитры').click(); }
 async function visibleFooter() {
