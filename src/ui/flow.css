@@ -25,7 +25,7 @@
 .prompt-text-preview{position:absolute;inset:0;overflow:hidden;pointer-events:none;color:var(--ink)}
 .prompt-editor-line>.has-inline-items{position:relative;color:transparent;caret-color:var(--ink)}
 .prompt-editor-line>.has-inline-items::selection{background:#c9dcff;color:var(--ink)}
-.prompt-inline-item{color:inherit;background:var(--surface);box-shadow:0 0 0 1px var(--line);border-radius:3px}
+.prompt-inline-item{color:inherit;background:var(--surface);box-shadow:0 0 0 2px var(--surface);border-radius:4px}
 .prompt-toolbar{display:grid;grid-template-columns:25px minmax(0,1fr) 30px;gap:5px;align-items:end}
 .prompt-options{display:flex;flex-wrap:wrap;gap:3px}
 .prompt-options>.select-field{margin:0}
