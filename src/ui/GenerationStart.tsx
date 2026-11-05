@@ -8,6 +8,7 @@ import { CustomSelect } from './CustomSelect';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
 import { canvasFormats, type CanvasFormat } from './canvas-formats';
+import { compositionLayouts } from './composition-layouts';
 import { textareaTextPoint } from './textarea-anchor';
 
 const details = [
@@ -20,6 +21,7 @@ export type PromptDraft = {
   mode: PromptMode;
   query: string;
   itemQuery: string;
+  itemStyle: Direction['style'];
   format: CanvasFormat;
   count: number;
   detail: 'default' | 'L' | 'S';
@@ -274,6 +276,8 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
             onChange={format => change({ ...draft, format })} options={canvasFormats} />
           <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
+          {itemMode && <CustomSelect label="Построение" triggerIcon={draft.itemStyle} value={draft.itemStyle} disabled={busy}
+            onChange={itemStyle => change({ ...draft, itemStyle })} options={compositionLayouts} />}
         </div>
         <button className="primary prompt-send" type="button" aria-label="Создать композиции" aria-keyshortcuts="Control+Enter"
           title="Создать композиции (Ctrl+Enter)" disabled={!canGenerate} onClick={generate}><Icon name="up" /></button>

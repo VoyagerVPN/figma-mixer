@@ -111,6 +111,15 @@ test('режим предметов сохраняет состав и с авт
     .rejects.toThrow('неизвестный предмет');
 });
 
+test('выбранное построение в режиме предметов применяется ко всей пачке без AI', async () => {
+  const withoutAI = async () => { throw new Error('Запрос не должен выполняться'); };
+  for (const style of ['balanced', 'airy'] as const) {
+    const plan = await planWithAI({ ...input, mode: 'items', query: 'book, lamp', count: 3, style }, items, builtInPalettes,
+      { ...connection, apiKey: '' }, withoutAI);
+    expect(plan.map(direction => direction.style)).toEqual([style, style, style]);
+  }
+});
+
 test('название предмета с запятой остаётся целым в редактируемом списке', async () => {
   const catalog = [{ ...items[0], name: 'Книга, открытая' }, items[1]];
   const options = { ...input, mode: 'items' as const, query: '"Книга, открытая", lamp, ' };

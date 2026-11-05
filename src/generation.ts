@@ -5,7 +5,7 @@ import { resolveItemMentions, resolveNames, validateSceneBatch, validateSelectio
 import { requestAIJSON, type AIConnection } from './ai';
 
 export type PromptMode = 'items' | 'metaphor';
-export type GenerationInput = { query: string; mode?: PromptMode; setId: string; palette: string; paletteSnapshot?: Palette; width: number; height: number; count: number; variant?: number; detail?: SceneOptions['detail']; requiredItemIds?: string[] };
+export type GenerationInput = { query: string; mode?: PromptMode; setId: string; palette: string; paletteSnapshot?: Palette; width: number; height: number; count: number; variant?: number; detail?: SceneOptions['detail']; style?: Direction['style']; requiredItemIds?: string[] };
 export type Direction = { title: string; ids: string[]; palette: string; backgroundIndex: number; style: 'balanced' | 'airy'; heroId: string; backgroundIds: string[]; explanation: string };
 
 type Generator = { create: (options: SceneOptions) => Promise<{ frameIds: string[]; warnings?: string[] }>; removeGenerated: (ids: string[]) => Promise<void> };
@@ -41,12 +41,13 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
   const explicitIds = [...new Set([...requiredIds, ...(exact ? named.ids : [])])];
   if (exact && !explicitIds.length) throw new Error('Добавьте хотя бы один предмет');
   if (explicitIds.length > 8) throw new Error('В одну композицию можно включить до восьми предметов');
+  const itemStyle = input.mode === 'items' && (input.style === 'balanced' || input.style === 'airy') ? input.style : undefined;
   if (exact && (!query || input.mode === 'items' || input.palette !== 'auto')) return Array.from({ length: input.count }, (_, index) => ({
     title: 'Композиция',
     ids: explicitIds,
     palette: input.palette === 'auto' ? palettes[0].id : input.palette,
     backgroundIndex: 0,
-    style: index % 2 === 0 ? 'balanced' : 'airy',
+    style: itemStyle ?? (index % 2 === 0 ? 'balanced' : 'airy'),
     heroId: '',
     backgroundIds: [],
     explanation: 'Использован указанный состав.'

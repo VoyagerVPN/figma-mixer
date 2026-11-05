@@ -124,6 +124,10 @@ try {
 
   await page.goto(base + '?empty');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
+  const layout = prompt.getByRole('combobox', { name: 'Построение', exact: true });
+  assert.equal(await layout.innerText(), 'Баланс');
+  await layout.click();
+  await page.getByRole('option', { name: 'Свободный центр', exact: true }).click();
   const itemInput = prompt.getByRole('textbox', { name: 'Названия предметов', exact: true });
   await itemInput.fill('кни');
   await suggestions.getByRole('option', { name: 'Книга', exact: true }).waitFor();
@@ -149,9 +153,11 @@ try {
   assert.equal(await itemInput.evaluate(node => node.scrollWidth <= node.clientWidth), true);
   await itemInput.fill(itemDraft);
   await prompt.getByRole('button', { name: 'Метафора', exact: true }).click();
+  assert.equal(await layout.count(), 0);
   assert.equal(await metaphor.inputValue(), '');
   await metaphor.fill('Вечер за @Телефон');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
+  assert.equal(await layout.innerText(), 'Свободный центр');
   assert.equal(await itemInput.inputValue(), itemDraft);
   await prompt.getByRole('button', { name: 'Метафора', exact: true }).click();
   assert.equal(await metaphor.inputValue(), 'Вечер за @Телефон');
@@ -165,6 +171,8 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-ai-request'), null);
   const manual = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
   assert.deepEqual(manual.directions.map(p => p.ids), [['starter-2', 'starter-1', 'starter-5']]);
+  const rendered = JSON.parse(await page.locator('html').getAttribute('data-created'));
+  assert.equal(rendered.style, 'airy');
   for (const [ratio, width, height] of [['4:3', 1440, 1080], ['5:4', 1350, 1080], ['3:4', 1080, 1440], ['9:16', 720, 1280]]) {
     await aspect.click();
     await page.getByRole('option', { name: new RegExp(`^${ratio} `) }).click();

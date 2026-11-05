@@ -11,12 +11,8 @@ import { Icon } from './Icon';
 import { ChoiceGroup } from './ChoiceGroup';
 import { LayerEditor } from './LayerEditor';
 import { canvasFormats, type CanvasFormat } from './canvas-formats';
+import { compositionLayouts } from './composition-layouts';
 import { reconcileLayers, type LayerStack } from '../layers';
-
-const layouts = [
-  { id: 'balanced', icon: 'balanced', name: 'Баланс', description: 'Асимметричная группа с крупным акцентом' },
-  { id: 'airy', icon: 'airy', name: 'Свободный центр', description: 'Предметы по краям, пространство в центре' }
-] as const;
 
 export function Composer({ items, selected, toggle, busy, keyReady, selectByText, create, exportSvg, scene, generation = 0, finish, palettes, paletteId, managePalettes, selectPalette }: {
   items: Item[]; selected: string[]; toggle: (id: string) => void; busy: boolean; keyReady: boolean;
@@ -28,7 +24,7 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
   const [count, setCount] = useState(1), [detail, setDetail] = useState<Detail>('default');
   const [variant, setVariant] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#D7CDF5'), [ground, setGround] = useState(false);
-  const [style, setStyle] = useState<typeof layouts[number]['id']>('balanced');
+  const [style, setStyle] = useState<typeof compositionLayouts[number]['value']>('balanced');
   const [layers, setLayers] = useState<LayerStack>({ background: [], main: [], heroId: '', manual: false });
   const [crop, setCrop] = useState<NonNullable<SceneOptions['crop']>>('accent');
   const [panel, setPanel] = useState<'roles' | 'description' | 'advanced' | null>(null);
@@ -82,8 +78,8 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
     <section className="output-section"><div className="output-controls"><CustomSelect label="Соотношение сторон" value={format} onChange={setFormat} options={canvasFormats} /><div className="quantity-field"><label htmlFor="variant-count">Вариантов</label><div className="quantity-control"><button aria-label="Меньше вариантов" disabled={busy || count <= 1} onClick={() => setCount(c => Math.max(1, (c || 1) - 1))}><Icon name="minus" /></button><input id="variant-count" aria-label="Количество вариантов" type="number" min={1} max={12} value={Number.isNaN(count) ? '' : count} onChange={e => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /><button aria-label="Больше вариантов" disabled={busy || count >= 12} onClick={() => setCount(c => Math.min(12, (c || 0) + 1))}><Icon name="plus" /></button></div></div></div></section>
 
     <section className="layout-section"><div className="section-heading"><h2>Построение</h2><button className="text-button" onClick={() => setPanel('advanced')} disabled={busy}><Icon name="settings" />Параметры</button></div>
-      <div className="segmented layout-options" role="group" aria-label="Построение композиции">{layouts.map(layout => <button key={layout.id} disabled={busy} aria-pressed={style === layout.id} onClick={() => setStyle(layout.id)}><Icon name={layout.icon} />{layout.name}</button>)}</div>
-      <p className="control-description">{layouts.find(layout => layout.id === style)!.description}</p>
+      <div className="segmented layout-options" role="group" aria-label="Построение композиции">{compositionLayouts.map(layout => <button key={layout.value} disabled={busy} aria-pressed={style === layout.value} onClick={() => setStyle(layout.value)}><Icon name={layout.icon} />{layout.label}</button>)}</div>
+      <p className="control-description">{compositionLayouts.find(layout => layout.value === style)!.description}</p>
     </section>
 
     <section className="appearance-section"><div className="section-heading"><h2>Оформление</h2><button className="text-button" disabled={busy} onClick={managePalettes}><Icon name="palette" />Палитры</button></div><div className="appearance-controls">
