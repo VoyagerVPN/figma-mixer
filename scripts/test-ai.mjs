@@ -135,6 +135,8 @@ try {
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   assert.equal(await layout.innerText(), 'Баланс');
   await layout.click();
+  assert.deepEqual((await page.getByRole('listbox', { name: 'Построение', exact: true }).getByRole('option').allTextContents()).map(label => label.replace(/✓$/, '').trim()),
+    ['Баланс', 'Свободный центр']);
   await page.getByRole('option', { name: 'Свободный центр', exact: true }).click();
   await page.setViewportSize(defaultViewport);
   const controlRows = await prompt.locator('.prompt-options > *').evaluateAll(controls => controls.map(control => control.getBoundingClientRect().top));
@@ -167,12 +169,16 @@ try {
   await itemInput.fill(itemDraft);
   await prompt.getByRole('button', { name: 'Идеи', exact: true }).click();
   assert.equal(await layout.innerText(), 'Авто');
+  await layout.click();
+  await page.getByRole('option', { name: 'Баланс', exact: true }).click();
+  assert.equal(await layout.innerText(), 'Баланс');
   assert.equal(await metaphor.inputValue(), '');
   await metaphor.fill('Вечер за @Телефон');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   assert.equal(await layout.innerText(), 'Свободный центр');
   assert.equal(await itemInput.inputValue(), itemDraft);
   await prompt.getByRole('button', { name: 'Идеи', exact: true }).click();
+  assert.equal(await layout.innerText(), 'Авто');
   assert.equal(await metaphor.inputValue(), 'Вечер за @Телефон');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   await page.screenshot({ path: resolve(output, 'items-inline.png') });
@@ -212,21 +218,6 @@ try {
     }, [width, height]);
   }
   console.log('OK предметы по буквам → выбор Tab и мышью → точный состав без AI');
-
-  await page.goto(base + '?empty');
-  await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
-  await itemInput.fill('Книга (фон), Лампа');
-  await layout.click();
-  await page.getByRole('listbox', { name: 'Построение', exact: true }).getByRole('option', { name: 'Авто', exact: true }).click();
-  assert.equal(await layout.innerText(), 'Авто');
-  await itemInput.press('Control+Enter');
-  const autoSettings = page.getByRole('dialog', { name: 'Подключение AI', exact: true });
-  await autoSettings.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
-  await autoSettings.getByRole('button', { name: 'Сохранить и сгенерировать', exact: true }).click();
-  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
-  const autoScene = JSON.parse(await page.locator('html').getAttribute('data-created'));
-  assert.deepEqual([autoScene.style, autoScene.ids, autoScene.backgroundIds], ['airy', ['starter-2', 'starter-5'], ['starter-2']]);
-  console.log('OK автопостроение в режиме предметов запрашивает AI и сохраняет состав и фон');
 
   await page.goto(base + '?empty');
   await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).fill('Сложная задача и новые идеи');

@@ -25,7 +25,7 @@ export type PromptDraft = {
   mode: PromptMode;
   query: string;
   itemQuery: string;
-  itemStyle: LayoutChoice;
+  itemStyle: Direction['style'];
   metaphorStyle: LayoutChoice;
   format: CanvasFormat;
   count: number;
@@ -155,7 +155,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
 
   function switchMode(mode: PromptMode) {
     if (mode === draft.mode) return;
-    change({ ...draft, mode });
+    change({ ...draft, mode, metaphorStyle: 'auto' });
     setDismissed(true);
     setHighlight(0);
     if (mode === 'items') ensureItems();
@@ -289,7 +289,10 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
           <CustomSelect label="Построение" triggerIcon={layout === 'auto' ? 'astroid' : layout} value={layout} disabled={busy}
-            onChange={value => change({ ...draft, ...(itemMode ? { itemStyle: value } : { metaphorStyle: value }) })} options={layoutOptions} />
+            onChange={value => {
+              if (!itemMode) change({ ...draft, metaphorStyle: value });
+              else if (value !== 'auto') change({ ...draft, itemStyle: value });
+            }} options={itemMode ? compositionLayouts : layoutOptions} />
         </div>
         <button className="primary prompt-send" type="button" aria-label="Создать композиции" aria-keyshortcuts="Control+Enter"
           title="Создать композиции (Ctrl+Enter)" disabled={!canGenerate} onClick={generate}><Icon name="up" /></button>
