@@ -62,7 +62,12 @@ try {
   assert.equal(await page.locator('.compose-items:visible').count(), 0);
   const suggestions = page.getByRole('listbox', { name: 'Подсказки из библиотеки', exact: true });
   const metaphor = prompt.getByRole('textbox', { name: 'Тема или метафора', exact: true });
+  await metaphor.press('Control+Enter');
+  assert.equal(await metaphor.inputValue(), '');
+  assert.equal(await page.locator('html').getAttribute('data-ai-request'), null);
   await metaphor.fill('Кни');
+  await metaphor.press('Enter');
+  assert.equal(await metaphor.inputValue(), 'Кни\n');
   assert.equal(await suggestions.count(), 0);
   await metaphor.fill('@кни');
   await suggestions.getByRole('option', { name: 'Книга', exact: true }).waitFor();
@@ -79,8 +84,9 @@ try {
   assert.equal(await metaphor.evaluate(node => document.activeElement === node), true);
   await metaphor.press('Tab');
   assert.equal(await metaphor.evaluate(node => document.activeElement === node), false);
-  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await metaphor.press('Control+Enter');
   await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  assert.equal(await metaphor.inputValue(), query);
   const first = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.deepEqual([first.width, first.height], [1280, 720]);
   await more.click();
@@ -151,8 +157,11 @@ try {
   assert.equal(await metaphor.inputValue(), 'Вечер за @Телефон');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   await page.screenshot({ path: resolve(output, 'items-inline.png') });
-  await prompt.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await itemInput.fill('Книга, Пазлы, Лампа');
+  await suggestions.getByRole('option', { name: 'Лампа', exact: true }).waitFor();
+  await itemInput.press('Control+Enter');
   await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  assert.equal(await itemInput.inputValue(), 'Книга, Пазлы, Лампа');
   assert.equal(await page.locator('html').getAttribute('data-ai-request'), null);
   const manual = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
   assert.deepEqual(manual.directions.map(p => p.ids), [['starter-2', 'starter-1', 'starter-5']]);

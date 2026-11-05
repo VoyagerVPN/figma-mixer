@@ -224,7 +224,13 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
               if (itemQueryAt(value, selectionStart, draft.mode)) ensureItems();
             }}
             onKeyDown={event => {
-              if (!showSuggestions || event.nativeEvent.isComposing) return;
+              if (event.nativeEvent.isComposing) return;
+              if (event.key === 'Enter' && event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey) {
+                event.preventDefault();
+                if (canGenerate && !event.repeat) generate();
+                return;
+              }
+              if (!showSuggestions) return;
               if (event.key === 'Escape') {
                 event.preventDefault();
                 setDismissed(true);
@@ -269,8 +275,8 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
         </div>
-        <button className="primary prompt-send" type="button" aria-label="Создать композиции"
-          title="Создать композиции" disabled={!canGenerate} onClick={generate}><Icon name="up" /></button>
+        <button className="primary prompt-send" type="button" aria-label="Создать композиции" aria-keyshortcuts="Control+Enter"
+          title="Создать композиции (Ctrl+Enter)" disabled={!canGenerate} onClick={generate}><Icon name="up" /></button>
       </div>
     </div>
     <div className="prompt-library-actions">
