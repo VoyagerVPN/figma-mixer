@@ -70,3 +70,27 @@ test('свободная композиция оставляет центр от
   expect(result.metrics.items.some(p => p.crop > .06)).toBe(true);
   expect(new Set(result.placements.map(p => p.scale)).size).toBe(1);
 });
+
+test('в свободном центре остаётся место под заголовок, а крупные силуэты заполняют кадр без сильной обрезки', () => {
+  const size = 24;
+  const pixels = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    if (Math.abs(x - 11.5) + Math.abs(y - 11.5) < 12) pixels[(y * size + x) * 4 + 3] = 255;
+  }
+  const profile = analyzePixels(pixels, size, size);
+  const items = [[1240, 660], [1450, 980], [510, 280], [890, 690]].map(([width, height], i) => ({ id: String(i), width, height, profile }));
+  for (const [width, height] of [[1080, 1080], [1280, 720], [720, 1280]]) {
+    const { placements, metrics } = composeScene(items, width, height, 0, { style: 'airy', crop: 'accent' });
+    expect(metrics.centerCoverage).toBeLessThan(.06);
+    expect(metrics.coverage).toBeGreaterThan(.25);
+    expect(metrics.items.every(item => item.crop < .20 && item.visible > .75)).toBe(true);
+    expect(new Set(placements.map(p => p.scale)).size).toBe(1);
+  }
+});
+
+test('один крупный предмет в свободной композиции оставляет центр открытым даже без обрезки', () => {
+  const { metrics } = composeScene([{ id: 'book', width: 1450, height: 980 }], 1080, 1080, 1, { style: 'airy', crop: 'none' });
+  expect(metrics.centerCoverage).toBeLessThan(.06);
+  expect(metrics.coverage).toBeGreaterThan(.14);
+  expect(metrics.items[0].crop).toBe(0);
+});

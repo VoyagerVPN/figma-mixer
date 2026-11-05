@@ -31,6 +31,7 @@ function emptyRectangle(grid: number[], size: number) {
 }
 
 export function evaluateComposition(items: CompositionItem[], placements: Placement[], width: number, height: number, options: CompositionOptions = {}) {
+  const airy = options.style === 'airy';
   const profiles = items.map(item => item.profile || rectangleProfile());
   const background = [1, 3, 5].map(i => parseInt((options.backgroundColor || '#D7CDF5').slice(i, i + 2), 16) / 255);
   const order = sceneLayerOrder(placements.map((p, i) => ({ ...p, background: items[i].background })), options.layerOrder).map(id => placements.findIndex(p => p.id === id));
@@ -60,8 +61,8 @@ export function evaluateComposition(items: CompositionItem[], placements: Placem
     results[index] = result;
     const hero = p.id === options.heroId;
     const edge = options.crop !== 'none' && !!options.bleedIds?.includes(p.id);
-    const minimumInside = options.crop === 'none' ? .995 : items[index].background ? .40 : edge ? .64 : .87;
-    const minimumVisible = items[index].background ? .23 : edge ? .56 : hero ? .69 : .80;
+    const minimumInside = options.crop === 'none' ? .995 : items[index].background ? (airy ? .72 : .40) : edge ? (airy ? .85 : .64) : .87;
+    const minimumVisible = airy ? (items[index].background ? .55 : .78) : items[index].background ? .23 : edge ? .56 : hero ? .69 : .80;
     score += deficit(1 - result.crop, minimumInside) * 160 + deficit(result.visible, minimumVisible) * 200 + deficit(result.importantVisible, minimumVisible) * 60;
     score += deficit(1 - result.occlusion, items[index].background ? .35 : .78) * 65;
     score += edge ? deficit(result.crop, options.cropTarget ?? .14) * 32 : result.crop * (items[index].background ? .08 : 1.3);
@@ -81,13 +82,13 @@ export function evaluateComposition(items: CompositionItem[], placements: Placem
   }
   const coverage = occupied.reduce((sum, a) => sum + a, 0) / occupied.length;
   const space = emptyRectangle(occupied, size);
-  const targetCoverage = options.style === 'airy' ? .32 : .43 + Math.max(0, items.length - 3) * .022;
+  const targetCoverage = airy ? .45 : .43 + Math.max(0, items.length - 3) * .022;
   const cx = momentX / (visualMass || 1) / width, cy = momentY / (visualMass || 1) / height;
   const targetX = options.balanceX ?? .5;
-  score += (coverage - targetCoverage) ** 2 * 16 + ((cx - targetX) ** 2 + (cy - (options.balanceY ?? .5)) ** 2) * 10;
+  score += (coverage - targetCoverage) ** 2 * (airy ? 60 : 16) + ((cx - targetX) ** 2 + (cy - (options.balanceY ?? .5)) ** 2) * 10;
   const centerCoverage = centerMass / centerCells;
   score += deficit(space, .13) * 28;
-  if (options.style === 'airy') score += centerCoverage ** 2 * 65 + centerCoverage * 8;
+  if (airy) score += centerCoverage ** 2 * 80 + centerCoverage * 12;
   if (options.style === 'diagonal') {
     const centers = placements.flatMap((p, i) => items[i].background ? [] : [{ x: (p.x + p.width * profiles[i].centroid.x) / width, y: (p.y + p.height * profiles[i].centroid.y) / height }]);
     if (centers.length > 1) {
@@ -125,6 +126,7 @@ export function evaluateComposition(items: CompositionItem[], placements: Placem
 export function composeScene(items: CompositionItem[], width: number, height: number, variant: number, options: CompositionOptions = {}) {
   if (!items.length) throw new Error('Выберите хотя бы один предмет');
   if (![width, height, ...items.flatMap(i => [i.width, i.height])].every(n => Number.isFinite(n) && n > 0)) throw new Error('Некорректный размер');
+  const airy = options.style === 'airy';
   const foreground = items.map((item, index) => ({ item, index, weight: visualWeight({ ...item, profile: item.profile || rectangleProfile() }, options.backgroundColor || '#D7CDF5') }))
     .filter(p => !p.item.background).sort((a, b) => b.weight - a.weight || a.item.id.localeCompare(b.item.id));
   const requested = foreground.find(p => p.item.id === options.heroId);
@@ -133,12 +135,13 @@ export function composeScene(items: CompositionItem[], width: number, height: nu
   const heroId = dominant ? lead.item.id : undefined;
   const largest = [...items].sort((a, b) => b.width * b.height * (b.profile?.coverage || 1) - a.width * a.height * (a.profile?.coverage || 1));
   const major = largest.filter(i => i.width * i.height * (i.profile?.coverage || 1) >= largest[0].width * largest[0].height * (largest[0].profile?.coverage || 1) * .55);
-  const bleedIds = options.crop === 'none' || items.length === 1 ? [] : (options.style === 'airy' ? major : major.slice(0, 2)).map(i => i.id);
-  const context = { ...options, heroId, bleedIds, cropTarget: .10 + variant % 3 * .035, balanceX: .5 + (variant % 3 - 1) * .035, balanceY: .48 + Math.floor(variant % 12 / 3) * .015 };
+  const bleedIds = options.crop === 'none' || items.length === 1 ? [] : (airy ? major : major.slice(0, 2)).map(i => i.id);
+  const context = { ...options, heroId, bleedIds, cropTarget: airy ? .07 : .10 + variant % 3 * .035, balanceX: .5 + (variant % 3 - 1) * .035, balanceY: .48 + Math.floor(variant % 12 / 3) * .015 };
   const ranked = [lead.index, ...foreground.filter(p => p.index !== lead.index).map(p => p.index), ...items.map((p, i) => p.background && i !== lead.index ? i : -1).filter(i => i >= 0)];
   const candidates: Placement[][] = [];
   // Кадр задаёт построение: крупные силуэты у границ, остальные поддерживают группу.
   const perimeter = [[.12, .12], [.88, .88], [.88, .12], [.12, .88], [.5, -.04], [.5, 1.04], [-.04, .5], [1.04, .5]];
+  const airyAnchors = [[.20, .20], [.80, .80], [.80, .20], [.20, .80], [.5, .14], [.5, .86], [.14, .5], [.86, .5]];
   const clusters = [
     [[.28, .48], [.82, .76], [.75, .12], [.13, .04], [.08, .88], [.97, .3], [.5, 1], [.5, -.05]],
     [[.76, .48], [.15, .76], [.28, .10], [.92, .04], [.97, .90], [.02, .30], [.5, 1], [.5, -.05]],
@@ -146,19 +149,34 @@ export function composeScene(items: CompositionItem[], width: number, height: nu
   ];
   const inkArea = items.reduce((sum, i) => sum + i.width * i.height * (i.profile?.coverage || 1), 0);
   for (let seed = 0; seed < 18; seed++) {
-    const anchors = options.style === 'airy' ? perimeter : clusters[(seed + variant) % clusters.length];
-    const scale = Math.sqrt(width * height * (options.style === 'airy' ? [.46, .60, .76][seed % 3] : [.55, .72, .9][seed % 3]) / inkArea);
+    const anchors = airy ? airyAnchors : clusters[(seed + variant) % clusters.length];
+    const scale = Math.sqrt(width * height * (airy ? [.44, .56, .70][seed % 3] : [.55, .72, .9][seed % 3]) / inkArea);
     const draft: Placement[] = items.map(i => ({ id: i.id, x: 0, y: 0, width: i.width * scale, height: i.height * scale, scale, background: i.background }));
     ranked.forEach((index, rank) => {
-      const slot = items[index].background ? perimeter[(rank + seed + 2) % perimeter.length] : anchors[rank % anchors.length];
+      const slot = airy ? anchors[(rank + Math.floor(seed / 6) * 2) % anchors.length]
+        : items[index].background ? perimeter[(rank + seed + 2) % perimeter.length] : anchors[rank % anchors.length];
       let [x, y] = slot;
       if ((seed + variant) % 2) x = 1 - x;
-      if (options.style === 'airy' && Math.floor((seed + variant) / 2) % 2) y = 1 - y;
+      if (airy && Math.floor((seed + variant) / 2) % 2) y = 1 - y;
       if (options.style === 'diagonal') { x += (rank % 2 ? .07 : -.07); y += (rank % 3 - 1) * .05; }
       draft[index].x = x * width - draft[index].width / 2;
       draft[index].y = y * height - draft[index].height / 2;
     });
     candidates.push(draft);
+  }
+  if (airy && items.length <= 2) {
+    // Для малого набора проверяем целую полосу у края, оставляя центральную треть свободной.
+    const widest = Math.max(...items.map(item => item.width));
+    const tallest = Math.max(...items.map(item => item.height));
+    for (const horizontal of [true, false]) {
+      const scale = Math.min(width * (horizontal ? .96 : .32) / widest, height * (horizontal ? .32 : .96) / tallest);
+      candidates.push(items.map((item, index) => {
+        const side = (ranked.indexOf(index) + variant) % 2 === 0 ? 1 / 6 : 5 / 6;
+        const w = item.width * scale, h = item.height * scale;
+        return { id: item.id, x: width * (horizontal ? .5 : side) - w / 2,
+          y: height * (horizontal ? side : .5) - h / 2, width: w, height: h, scale, background: item.background };
+      }));
+    }
   }
   const aspect = Math.sqrt(width / height);
   for (let seed = 0; seed < (options.style === 'airy' ? 0 : 14); seed++) {
@@ -209,7 +227,14 @@ export function composeScene(items: CompositionItem[], width: number, height: nu
     for (let pass = 0; pass < 5; pass++) {
     const step = [.085, .06, .04, .025, .012][pass];
     for (let cycle = 0; cycle < (items.length <= 3 ? 2 : 1); cycle++) {
-      for (const factor of [1.10, 1.04, .94]) accept(best.map(p => ({ ...p, x: width / 2 + (p.x - width / 2) * factor, y: height / 2 + (p.y - height / 2) * factor, width: p.width * factor, height: p.height * factor, scale: p.scale! * factor })));
+      for (const factor of [1.10, 1.04, .94]) accept(best.map(p => ({
+        ...p,
+        x: airy ? p.x + p.width * (1 - factor) / 2 : width / 2 + (p.x - width / 2) * factor,
+        y: airy ? p.y + p.height * (1 - factor) / 2 : height / 2 + (p.y - height / 2) * factor,
+        width: p.width * factor,
+        height: p.height * factor,
+        scale: p.scale! * factor
+      })));
       for (const factor of [.82, 1.12]) accept(best.map(p => ({ ...p, x: metrics.centroid.x * width + (p.x + p.width / 2 - metrics.centroid.x * width) * factor - p.width / 2, y: metrics.centroid.y * height + (p.y + p.height / 2 - metrics.centroid.y * height) * factor - p.height / 2 })));
       accept(best.map(p => ({ ...p, x: p.x + (context.balanceX - metrics.centroid.x) * width * .6, y: p.y + (context.balanceY - metrics.centroid.y) * height * .6 })));
       for (let i = 0; i < best.length; i++) for (const [dx, dy] of [[-step, 0], [step, 0], [0, -step], [0, step], [-step, -step], [step, step], [-step, step], [step, -step]]) {
