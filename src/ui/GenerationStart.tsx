@@ -7,13 +7,8 @@ import { itemListName, normalizeItemName, resolveItemList, resolveItemMentions }
 import { CustomSelect } from './CustomSelect';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
+import { canvasFormats, type CanvasFormat } from './canvas-formats';
 import { textareaTextPoint } from './textarea-anchor';
-
-const formats = [
-  { value: '1200x630', label: 'Горизонтальный · 1200 × 630', shortLabel: '1200×630', icon: 'landscape' },
-  { value: '1080x1080', label: 'Квадрат · 1080 × 1080', shortLabel: '1080×1080', icon: 'square' },
-  { value: '1080x1350', label: 'Вертикальный · 1080 × 1350', shortLabel: '1080×1350', icon: 'portrait' }
-] as const;
 
 const details = [
   { value: 'default', label: 'Исходная', shortLabel: 'Исх.' },
@@ -21,16 +16,11 @@ const details = [
   { value: 'S', label: 'S · Упрощённая', shortLabel: 'S' }
 ] as const;
 
-const counts = Array.from({ length: 12 }, (_, index) => {
-  const count = index + 1;
-  return { value: String(count), shortLabel: String(count), label: `${count} ${count === 1 ? 'вариант' : count <= 4 ? 'варианта' : 'вариантов'}` };
-});
-
 export type PromptDraft = {
   mode: PromptMode;
   query: string;
   itemQuery: string;
-  format: string;
+  format: CanvasFormat;
   count: number;
   detail: 'default' | 'L' | 'S';
 };
@@ -267,10 +257,15 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           title={named.ids.length >= 8 ? 'Можно добавить до восьми предметов' : 'Добавить предмет'}
           disabled={busy || named.ids.length >= 8} onClick={openPicker}><Icon name="plus" /></button>
         <div className="prompt-options">
-          <CustomSelect label="Количество вариантов" triggerIcon="layers" value={String(draft.count)} disabled={busy}
-            onChange={count => change({ ...draft, count: Number(count) })} options={counts} />
-          <CustomSelect label="Формат" triggerIcon={formats.find(format => format.value === draft.format)?.icon ?? 'landscape'} value={draft.format} disabled={busy}
-            onChange={format => change({ ...draft, format })} options={formats} />
+          <div className="prompt-count" role="group" aria-label="Количество вариантов">
+            <button type="button" aria-label="Меньше вариантов" title="Меньше вариантов" disabled={busy || draft.count <= 1}
+              onClick={() => change({ ...draft, count: draft.count - 1 })}><Icon name="minus" /></button>
+            <output title="Количество вариантов">{draft.count}</output>
+            <button type="button" aria-label="Больше вариантов" title="Больше вариантов" disabled={busy || draft.count >= 12}
+              onClick={() => change({ ...draft, count: draft.count + 1 })}><Icon name="plus" /></button>
+          </div>
+          <CustomSelect label="Соотношение сторон" triggerIcon={canvasFormats.find(format => format.value === draft.format)?.icon ?? 'landscape'} value={draft.format} disabled={busy}
+            onChange={format => change({ ...draft, format })} options={canvasFormats} />
           <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
         </div>

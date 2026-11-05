@@ -14,6 +14,7 @@ import { Icon } from './ui/Icon';
 import { builtInPalettes, type NamedPalette, type PaletteDraft } from './palettes';
 import { PaletteManager } from './ui/PaletteManager';
 import { GenerationStart, type PromptDraft } from './ui/GenerationStart';
+import { canvasFormats } from './ui/canvas-formats';
 import type { Direction, GenerationInput } from './generation';
 import './ui.css';
 import './ui/flow.css';
@@ -39,7 +40,7 @@ function App() {
   const [generation, setGeneration] = useState(0);
   const [palettes, setPalettes] = useState<NamedPalette[]>(builtInPalettes), [paletteId, setPaletteId] = useState('auto'), [paletteOpen, setPaletteOpen] = useState(false);
   const [promptDraft, setPromptDraft] = useState<PromptDraft>({
-    mode: 'metaphor', query: '', itemQuery: '', format: '1200x630', count: 3, detail: 'default'
+    mode: 'metaphor', query: '', itemQuery: '', format: canvasFormats[0].value, count: 1, detail: 'default'
   }), [promptResult, setPromptResult] = useState<Direction[]>([]);
   const pendingInput = useRef<GenerationInput | null>(null);
   const keyRequested = useRef(false);

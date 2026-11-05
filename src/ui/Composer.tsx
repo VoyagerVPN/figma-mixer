@@ -10,6 +10,7 @@ import { Panel } from './Panel';
 import { Icon } from './Icon';
 import { ChoiceGroup } from './ChoiceGroup';
 import { LayerEditor } from './LayerEditor';
+import { canvasFormats, type CanvasFormat } from './canvas-formats';
 import { reconcileLayers, type LayerStack } from '../layers';
 
 const layouts = [
@@ -24,8 +25,8 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
   scene: string; generation?: number; finish: () => void;
   palettes: NamedPalette[]; paletteId: string; managePalettes: () => void; selectPalette: (id: string) => void;
 }) {
-  const [query, setQuery] = useState(''), [format, setFormat] = useState('1200x630');
-  const [count, setCount] = useState(3), [detail, setDetail] = useState<Detail>('default');
+  const [query, setQuery] = useState(''), [format, setFormat] = useState<CanvasFormat>(canvasFormats[0].value);
+  const [count, setCount] = useState(1), [detail, setDetail] = useState<Detail>('default');
   const [variant, setVariant] = useState(0);
   const [backgroundColor, setBackgroundColor] = useState('#D7CDF5'), [ground, setGround] = useState(false);
   const [style, setStyle] = useState<NonNullable<SceneOptions['style']>>('balanced');
@@ -79,7 +80,7 @@ export function Composer({ items, selected, toggle, busy, keyReady, selectByText
       {!chosen.length && <button className="empty-selection with-icon" onClick={() => setStep('elements')}><Icon name="grid" />Выбрать элементы из набора</button>}
     </section>
 
-    <section className="output-section"><div className="output-controls"><CustomSelect label="Формат" value={format} onChange={setFormat} options={[{ value: '1200x630', label: 'Горизонтальный · 1200 × 630', icon: 'landscape' }, { value: '1080x1080', label: 'Квадрат · 1080 × 1080', icon: 'square' }, { value: '1080x1350', label: 'Вертикальный · 1080 × 1350', icon: 'portrait' }]} /><div className="quantity-field"><label htmlFor="variant-count">Вариантов</label><div className="quantity-control"><button aria-label="Меньше вариантов" disabled={busy || count <= 1} onClick={() => setCount(c => Math.max(1, (c || 1) - 1))}><Icon name="minus" /></button><input id="variant-count" aria-label="Количество вариантов" type="number" min={1} max={12} value={Number.isNaN(count) ? '' : count} onChange={e => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /><button aria-label="Больше вариантов" disabled={busy || count >= 12} onClick={() => setCount(c => Math.min(12, (c || 0) + 1))}><Icon name="plus" /></button></div></div></div></section>
+    <section className="output-section"><div className="output-controls"><CustomSelect label="Соотношение сторон" value={format} onChange={setFormat} options={canvasFormats} /><div className="quantity-field"><label htmlFor="variant-count">Вариантов</label><div className="quantity-control"><button aria-label="Меньше вариантов" disabled={busy || count <= 1} onClick={() => setCount(c => Math.max(1, (c || 1) - 1))}><Icon name="minus" /></button><input id="variant-count" aria-label="Количество вариантов" type="number" min={1} max={12} value={Number.isNaN(count) ? '' : count} onChange={e => setCount(e.target.value === '' ? NaN : Number(e.target.value))} /><button aria-label="Больше вариантов" disabled={busy || count >= 12} onClick={() => setCount(c => Math.min(12, (c || 0) + 1))}><Icon name="plus" /></button></div></div></div></section>
 
     <section className="layout-section"><div className="section-heading"><h2>Построение</h2><button className="text-button" onClick={() => setPanel('advanced')} disabled={busy}><Icon name="settings" />Параметры</button></div>
       <div className="segmented layout-options" role="group" aria-label="Построение композиции">{layouts.map(layout => <button key={layout.id} disabled={busy} aria-pressed={style === layout.id} onClick={() => setStyle(layout.id)}><Icon name={layout.icon} />{layout.name}</button>)}</div>

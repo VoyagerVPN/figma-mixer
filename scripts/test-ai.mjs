@@ -26,9 +26,21 @@ try {
   await page.getByRole('heading', { name: 'Новая композиция', exact: true }).waitFor();
   const prompt = page.getByRole('group', { name: 'Запрос композиции', exact: true });
   await prompt.getByRole('textbox', { name: 'Тема или метафора', exact: true }).waitFor();
-  for (const name of ['Количество вариантов', 'Формат', 'Детализация']) {
+  for (const name of ['Соотношение сторон', 'Детализация']) {
     assert.equal(await prompt.getByRole('combobox', { name, exact: true }).isVisible(), true);
   }
+  const aspect = prompt.getByRole('combobox', { name: 'Соотношение сторон', exact: true });
+  assert.equal(await aspect.innerText(), '16:9');
+  const variants = prompt.getByRole('group', { name: 'Количество вариантов', exact: true });
+  const count = variants.getByRole('status');
+  const less = variants.getByRole('button', { name: 'Меньше вариантов', exact: true });
+  const more = variants.getByRole('button', { name: 'Больше вариантов', exact: true });
+  assert.equal(await count.innerText(), '1');
+  assert.equal(await less.isDisabled(), true);
+  for (let index = 1; index < 12; index++) await more.click();
+  assert.equal(await count.innerText(), '12');
+  assert.equal(await more.isDisabled(), true);
+  for (let index = 12; index > 1; index--) await less.click();
   const palette = page.getByRole('combobox', { name: 'Палитра', exact: true });
   const [paletteBounds, promptBounds] = await Promise.all([palette.boundingBox(), prompt.boundingBox()]);
   assert.ok(paletteBounds.y + paletteBounds.height <= promptBounds.y);
@@ -55,9 +67,15 @@ try {
   await metaphor.press('Tab');
   assert.equal(await metaphor.evaluate(node => document.activeElement === node), false);
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  const first = JSON.parse(await page.locator('html').getAttribute('data-created'));
+  assert.deepEqual([first.width, first.height], [1280, 720]);
+  await more.click();
+  await more.click();
+  await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
   assert.equal(await metaphor.inputValue(), query);
-  assert.equal(await prompt.getByRole('combobox', { name: 'Количество вариантов', exact: true }).innerText(), '3');
+  assert.equal(await count.innerText(), '3');
   const generated = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
   assert.equal(generated.directions.length, 3);
   assert.equal(generated.directions.every(p => p.ids.includes('starter-2')), true);
@@ -66,12 +84,11 @@ try {
   console.log('OK параметры в поле запроса → один запрос → разные составы → результат на том же экране');
   await palette.click();
   await page.getByRole('option', { name: 'Персик', exact: true }).click();
-  await prompt.getByRole('combobox', { name: 'Формат', exact: true }).click();
-  await page.getByRole('option', { name: 'Квадрат · 1080 × 1080', exact: true }).click();
+  await aspect.click();
+  await page.getByRole('option', { name: '1:1 · Квадрат', exact: true }).click();
   await prompt.getByRole('combobox', { name: 'Детализация', exact: true }).click();
   await page.getByRole('option', { name: 'S · Упрощённая', exact: true }).click();
-  await prompt.getByRole('combobox', { name: 'Количество вариантов', exact: true }).click();
-  await page.getByRole('option', { name: '2 варианта', exact: true }).click();
+  await less.click();
   await prompt.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByText('Создано вариантов: 2', { exact: true }).waitFor();
   await page.waitForFunction(() => JSON.parse(document.documentElement.dataset.promptResult || '{}').directions?.every(p => p.palette === 'peach'));
@@ -122,10 +139,10 @@ try {
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   await page.screenshot({ path: resolve(output, 'items-inline.png') });
   await prompt.getByRole('button', { name: 'Создать композиции', exact: true }).click();
-  await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
+  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
   assert.equal(await page.locator('html').getAttribute('data-ai-request'), null);
   const manual = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
-  assert.deepEqual(manual.directions.map(p => p.ids), Array.from({ length: 3 }, () => ['starter-2', 'starter-1', 'starter-5']));
+  assert.deepEqual(manual.directions.map(p => p.ids), [['starter-2', 'starter-1', 'starter-5']]);
   console.log('OK предметы по буквам → выбор Tab и мышью → точный состав без AI');
 
   await page.goto(base + '?empty');
@@ -134,7 +151,7 @@ try {
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor();
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
-  await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
+  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Сложная задача и новые идеи');
   console.log('OK подключение ключа продолжает исходный запрос без повторного ввода');
 
