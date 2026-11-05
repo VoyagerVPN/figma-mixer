@@ -7,16 +7,21 @@ import { Icon } from './Icon';
 import { Panel } from './Panel';
 
 const formats = [
-  { value: '1200x630', label: 'Горизонтальный · 1200 × 630', shortLabel: '1200×630' },
-  { value: '1080x1080', label: 'Квадрат · 1080 × 1080', shortLabel: '1080×1080' },
-  { value: '1080x1350', label: 'Вертикальный · 1080 × 1350', shortLabel: '1080×1350' }
-];
+  { value: '1200x630', label: 'Горизонтальный · 1200 × 630', shortLabel: '1200×630', icon: 'landscape' },
+  { value: '1080x1080', label: 'Квадрат · 1080 × 1080', shortLabel: '1080×1080', icon: 'square' },
+  { value: '1080x1350', label: 'Вертикальный · 1080 × 1350', shortLabel: '1080×1350', icon: 'portrait' }
+] as const;
 
 const details = [
-  { value: 'default', label: 'Исходная' },
+  { value: 'default', label: 'Исходная', shortLabel: 'Исх.' },
   { value: 'L', label: 'L · Подробная', shortLabel: 'L' },
   { value: 'S', label: 'S · Упрощённая', shortLabel: 'S' }
 ] as const;
+
+const counts = Array.from({ length: 12 }, (_, index) => {
+  const count = index + 1;
+  return { value: String(count), shortLabel: String(count), label: `${count} ${count === 1 ? 'вариант' : count <= 4 ? 'варианта' : 'вариантов'}` };
+});
 
 export type PromptDraft = {
   query: string;
@@ -53,12 +58,18 @@ export function GenerationStart({ sets, setId, items, prepareItems, palettes, pa
   return <div className="prompt-composer">
     <h1>Новая композиция</h1>
     <p className="intro">Mixer подберёт предметы и соберёт варианты на холсте Figma.</p>
-    <div className="prompt-library">
-      <CustomSelect label="Библиотека" value={setId} disabled={busy} onChange={id => id === '__import__' ? own() : choose(id)}
+    <div className="prompt-sources">
+      <CustomSelect label="Библиотека" triggerIcon="grid" value={setId} disabled={busy} onChange={id => id === '__import__' ? own() : choose(id)}
         options={[
           { value: 'starter', label: 'Стартовый набор', icon: 'grid' },
           ...sets.filter(set => set.id !== 'starter').map(set => ({ value: set.id, label: set.name })),
           { value: '__import__', label: 'Добавить свои элементы…', icon: 'upload' }
+        ]} />
+      <CustomSelect label="Палитра" triggerIcon="palette" value={paletteId === 'original' ? 'purple' : paletteId} disabled={busy} onChange={choosePalette}
+        options={[
+          { value: 'auto', label: 'Пусть AI выберет', shortLabel: 'Авто', icon: 'palette' },
+          ...palettes.map(p => ({ value: p.id, label: p.name, colors: [...p.background, ...p.object_accents] })),
+          { value: '__manage__', label: 'Настроить палитры…', icon: 'edit' }
         ]} />
     </div>
     <div className="prompt-box" role="group" aria-label="Запрос композиции">
@@ -77,19 +88,12 @@ export function GenerationStart({ sets, setId, items, prepareItems, palettes, pa
           title={tagged.length >= 8 ? 'Можно добавить до восьми предметов' : 'Добавить предмет'}
           disabled={busy || tagged.length >= 8} onClick={openPicker}><Icon name="plus" /></button>
         <div className="prompt-options">
-          <label className="prompt-count"><span>Варианты</span><input aria-label="Количество вариантов" type="number" min={1} max={12}
-            disabled={busy} value={Number.isNaN(draft.count) ? '' : draft.count}
-            onChange={event => change({ ...draft, count: event.target.valueAsNumber })} /></label>
-          <CustomSelect label="Формат" value={draft.format} disabled={busy}
+          <CustomSelect label="Количество вариантов" triggerIcon="layers" value={String(draft.count)} disabled={busy}
+            onChange={count => change({ ...draft, count: Number(count) })} options={counts} />
+          <CustomSelect label="Формат" triggerIcon={formats.find(format => format.value === draft.format)?.icon ?? 'landscape'} value={draft.format} disabled={busy}
             onChange={format => change({ ...draft, format })} options={formats} />
-          <CustomSelect label="Детализация" value={draft.detail} disabled={busy}
+          <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
-          <CustomSelect label="Палитра" value={paletteId === 'original' ? 'purple' : paletteId} disabled={busy} onChange={choosePalette}
-            options={[
-              { value: 'auto', label: 'Пусть AI выберет', shortLabel: 'Авто', icon: 'palette' },
-              ...palettes.map(p => ({ value: p.id, label: p.name, shortLabel: p.name, colors: [...p.background, ...p.object_accents] })),
-              { value: '__manage__', label: 'Настроить палитры…', icon: 'edit' }
-            ]} />
         </div>
         <button className="primary prompt-send" type="button" aria-label="Создать композиции"
           title="Создать композиции" disabled={!canGenerate} onClick={generate}><Icon name="up" /></button>

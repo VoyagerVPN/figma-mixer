@@ -19,6 +19,7 @@ const paths = {
     landscape: 'M1.5 3.5h13v9h-13z', square: 'M2.5 2.5h11v11h-11z', portrait: 'M3.5 1.5h9v13h-9z',
     palette: 'M8 1.5a6.5 6.5 0 1 0 0 13h1a1.5 1.5 0 0 0 1-2.6 1.5 1.5 0 0 1 1-2.6h1.5a2 2 0 0 0 2-2A6 6 0 0 0 8 1.5M4.5 5.5h.01M8 4h.01M11.5 5.5h.01M4 9h.01',
     crop: 'M5 1v10h10M1 5h10v10',
+    detail: 'M2 4h3m3 0h6M2 8h6m3 0h3M2 12h3m3 0h6M5 2.5v3m6 1v3m-6 1v3',
     save: 'M2 2h10l2 2v10H2zM5 2v4h6V2M5 14V9h6v5',
     key: 'M9 5a3 3 0 1 1 6 0 3 3 0 0 1-6 0M10 7 3 14H1v-2l2-2h2V8h2l1.5-1.5',
     folder: 'M1.5 4V2.5h5l1.5 2h6.5V13h-13z',

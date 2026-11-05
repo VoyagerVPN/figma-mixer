@@ -26,10 +26,13 @@ try {
   await page.getByRole('heading', { name: 'Новая композиция', exact: true }).waitFor();
   const prompt = page.getByRole('group', { name: 'Запрос композиции', exact: true });
   await prompt.getByRole('textbox', { name: 'Тема или метафора', exact: true }).waitFor();
-  for (const name of ['Формат', 'Детализация', 'Палитра']) {
+  for (const name of ['Количество вариантов', 'Формат', 'Детализация']) {
     assert.equal(await prompt.getByRole('combobox', { name, exact: true }).isVisible(), true);
   }
-  assert.equal(await prompt.getByRole('spinbutton', { name: 'Количество вариантов', exact: true }).isVisible(), true);
+  const palette = page.getByRole('combobox', { name: 'Палитра', exact: true });
+  const [paletteBounds, promptBounds] = await Promise.all([palette.boundingBox(), prompt.boundingBox()]);
+  assert.ok(paletteBounds.y + paletteBounds.height <= promptBounds.y);
+  assert.equal(await prompt.getByRole('combobox', { name: 'Палитра', exact: true }).count(), 0);
   await page.screenshot({ path: resolve(output, 'prompt.png') });
   assert.equal(await page.locator('.compose-items:visible').count(), 0);
   await prompt.getByRole('button', { name: 'Добавить предмет', exact: true }).click();
@@ -39,20 +42,21 @@ try {
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
   assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Обучение через практику');
-  assert.equal(await prompt.getByRole('spinbutton', { name: 'Количество вариантов', exact: true }).inputValue(), '3');
+  assert.equal(await prompt.getByRole('combobox', { name: 'Количество вариантов', exact: true }).innerText(), '3');
   const generated = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
   assert.equal(generated.directions.length, 3);
   assert.equal(generated.directions.every(p => p.ids.includes('starter-2')), true);
   assert.equal(new Set(generated.directions.map(p => [...p.ids].sort().join(','))).size, 3);
   await page.screenshot({ path: resolve(output, 'result.png') });
   console.log('OK параметры в поле запроса → один запрос → разные составы → результат на том же экране');
-  await prompt.getByRole('combobox', { name: 'Палитра', exact: true }).click();
+  await palette.click();
   await page.getByRole('option', { name: 'Персик', exact: true }).click();
   await prompt.getByRole('combobox', { name: 'Формат', exact: true }).click();
   await page.getByRole('option', { name: 'Квадрат · 1080 × 1080', exact: true }).click();
   await prompt.getByRole('combobox', { name: 'Детализация', exact: true }).click();
   await page.getByRole('option', { name: 'S · Упрощённая', exact: true }).click();
-  await prompt.getByRole('spinbutton', { name: 'Количество вариантов', exact: true }).fill('2');
+  await prompt.getByRole('combobox', { name: 'Количество вариантов', exact: true }).click();
+  await page.getByRole('option', { name: '2 варианта', exact: true }).click();
   await prompt.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByText('Создано вариантов: 2', { exact: true }).waitFor();
   await page.waitForFunction(() => JSON.parse(document.documentElement.dataset.promptResult || '{}').directions?.every(p => p.palette === 'peach'));

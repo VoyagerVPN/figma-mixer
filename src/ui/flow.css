@@ -3,8 +3,11 @@
 
 .prompt-composer{padding:28px 0}
 .prompt-composer>.intro{font-size:13px;line-height:20px;margin:8px 0 22px}
-.prompt-library{max-width:290px;margin-bottom:14px}
-.prompt-library .select-field{margin:0}
+.prompt-sources{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:8px;margin-bottom:14px}
+.prompt-sources>.select-field{margin:0}
+.select-compact-value{display:flex;align-items:center;gap:6px}
+.select-compact-value>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.select-menu-heading{padding:4px 8px;color:var(--muted);font-size:11px}
 .prompt-box{padding:12px 12px 10px;border:1px solid var(--line);border-radius:22px;background:var(--raised)}
 .prompt-box:focus-within{border-color:#a0a0a8}
 .prompt-box>.prompt-input{display:block;width:100%;min-height:112px;max-height:220px;margin:0;padding:4px 3px 12px;border:0;border-radius:0;background:transparent;font-size:14px;line-height:22px;resize:none;field-sizing:content}
@@ -16,15 +19,13 @@
 .prompt-item>button:hover{background:var(--raised);color:var(--ink)}
 .prompt-item>button>.ui-icon{width:12px;height:12px}
 .prompt-toolbar{display:grid;grid-template-columns:25px minmax(0,1fr) 30px;gap:5px;align-items:end}
-.prompt-options{display:grid;grid-template-columns:49px minmax(80px,1.22fr) minmax(61px,1.05fr) minmax(64px,1fr);gap:4px}
-.prompt-options>.select-field,.prompt-options>.prompt-count{min-width:0;margin:0}
-.prompt-options>.select-field>label,.prompt-count>span{display:block;margin:0 0 2px;padding-left:5px;color:var(--muted);font-size:10px;line-height:15px}
-.prompt-options .select-trigger,.prompt-options .prompt-count>input[type=number]{width:100%;min-height:26px;height:26px;margin:0;padding:3px 5px;gap:3px;border-color:transparent;background:transparent;font-size:11px}
-.prompt-options .select-trigger:hover,.prompt-options .prompt-count>input[type=number]:hover,.prompt-options .prompt-count>input[type=number]:focus{background:var(--surface);border-color:var(--line)}
-.prompt-options .select-trigger>span:first-child{min-width:0}
+.prompt-options{display:flex;flex-wrap:wrap;gap:3px}
+.prompt-options>.select-field{margin:0}
+.prompt-options .select-trigger{min-height:26px;height:26px;padding:3px 5px;gap:3px;border-color:transparent;background:transparent;font-size:11px}
+.prompt-options .select-trigger:hover{background:var(--surface);border-color:var(--line)}
+.prompt-options .select-compact-value{gap:4px}
+.prompt-options .select-compact-value>.ui-icon{width:14px;height:14px}
 .prompt-options .select-chevron>svg{width:10px;height:10px}
-.prompt-count>input[type=number]{appearance:textfield}
-.prompt-count>input::-webkit-inner-spin-button,.prompt-count>input::-webkit-outer-spin-button{appearance:none}
 .prompt-toolbar>.prompt-add{width:25px;height:28px;min-height:28px;padding:3px}
 .prompt-toolbar>.prompt-send{display:grid;place-items:center;width:30px;height:30px;min-height:30px;padding:0;border-radius:50%}
 .prompt-library-actions{display:flex;flex-wrap:wrap;column-gap:16px;margin-top:5px}
@@ -35,6 +36,3 @@
 .prompt-results h2{font-size:13px}
 .select-color-strip{display:inline-flex;flex-shrink:0;overflow:hidden;border:1px solid #0001;border-radius:3px}
 .select-color-strip>i{width:7px;height:16px}
-@media(max-width:395px){
-  .prompt-options{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:4px}
-}
