@@ -10,31 +10,54 @@ export function validateSelection(value: unknown, catalog: CatalogItem[]) {
 }
 export const normalizeItemName = (value: string) => value.toLocaleLowerCase('ru').replace(/ё/g, 'е').trim();
 
-export function resolveNames(input: string, catalog: CatalogItem[]) {
-  const ids: string[] = [];
+export function itemListName(name: string) {
+  return /[,;\n]/.test(name) || name.startsWith('"') ? JSON.stringify(name) : name;
+}
+
+export function resolveItemList(input: string, catalog: CatalogItem[]) {
+  const ranges: { id: string; start: number; end: number }[] = [];
   const missing: string[] = [];
-  for (const part of input.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)) {
-    const item = catalog.find(item => normalizeItemName(item.name) === normalizeItemName(part));
-    if (item) { if (!ids.includes(item.id)) ids.push(item.id); }
-    else missing.push(part);
+  const tokens = /(?:[,;\n]|^)([ \t]*"(?:\\.|[^"\\])*"[ \t]*(?=[,;\n]|$)|[^,;\n]*)/g;
+  for (const token of input.matchAll(tokens)) {
+    const raw = token[1].trim();
+    if (!raw) continue;
+    let name = raw;
+    if (raw.startsWith('"') && raw.endsWith('"')) {
+      try { name = JSON.parse(raw); } catch { /* Имя может содержать кавычки. */ }
+    }
+    const item = catalog.find(item => normalizeItemName(item.name) === normalizeItemName(name));
+    const start = token.index + token[0].length - token[1].length + token[1].indexOf(raw);
+    if (item) ranges.push({ id: item.id, start, end: start + raw.length });
+    else missing.push(name);
   }
+  return { ids: [...new Set(ranges.map(range => range.id))], missing, ranges };
+}
+
+export function resolveNames(input: string, catalog: CatalogItem[]) {
+  const { ids, missing } = resolveItemList(input, catalog);
   return { ids, missing };
 }
 
 export function resolveItemMentions(input: string, catalog: CatalogItem[]) {
-  const ids = new Set<string>();
+  const ranges: { id: string; start: number; end: number }[] = [];
   const missing: string[] = [];
   const names = catalog.map(item => ({ id: item.id, name: normalizeItemName(item.name) }))
     .sort((a, b) => b.name.length - a.name.length);
   for (const mention of input.matchAll(/(?<![\p{L}\p{N}_.+@-])@/gu)) {
-    const after = input.slice(mention.index + mention[0].length);
+    const start = mention.index;
+    if (start < (ranges[ranges.length - 1]?.end ?? 0)) continue;
+    const after = input.slice(start + 1);
     const search = normalizeItemName(after);
     const item = names.find(({ name }) => name && search.startsWith(name) &&
       (search.length === name.length || /[\s,.!?;:…()[\]{}"'«»]/.test(search[name.length])));
-    if (item) ids.add(item.id);
+    if (item) ranges.push({
+      id: item.id,
+      start,
+      end: start + 1 + after.length - after.trimStart().length + item.name.length
+    });
     else missing.push('@' + (after.trim().match(/^[^\s,.!?;:…()[\]{}@]+/)?.[0] || ''));
   }
-  return { ids: [...ids], missing };
+  return { ids: [...new Set(ranges.map(range => range.id))], missing, ranges };
 }
 
 export type SizedItem = CompositionItem;

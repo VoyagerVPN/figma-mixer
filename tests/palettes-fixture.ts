@@ -1,6 +1,7 @@
 import { PaletteStore } from '../src/palette-store';
 import library from '../src/assets/library.json';
 import { generateCompositions } from '../src/generation';
+import { resolveItemMentions } from '../src/core';
 import { AIKeyRequired, aiPresets, configureAI, listAIModels, publicAI, validateAIConfig } from '../src/ai';
 import '../src/ui';
 
@@ -56,7 +57,7 @@ window.addEventListener('message', event => {
         removeGenerated: async () => {}
       }, async (url, options) => {
         document.documentElement.dataset.aiRequest = JSON.stringify({ url, body: JSON.parse(String(options?.body)) });
-        const required: string[] = m.input.requiredItemIds || [];
+        const required: string[] = [...(m.input.requiredItemIds || []), ...resolveItemMentions(m.input.query, selected).ids];
         const combinations: string[][] = [];
         for (let a = 0; a < selected.length; a++) for (let b = a + 1; b < selected.length; b++) combinations.push([selected[a].id, selected[b].id]);
         combinations.push(...selected.map(item => [item.id]));

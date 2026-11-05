@@ -39,6 +39,7 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
   if (input.mode === 'items' && named.missing.length) throw new Error('Не найден предмет: ' + named.missing.join(', '));
   const exact = !query || input.mode === 'items' || (input.mode !== 'metaphor' && named.ids.length > 0 && !named.missing.length);
   const explicitIds = [...new Set([...requiredIds, ...(exact ? named.ids : [])])];
+  if (exact && !explicitIds.length) throw new Error('Добавьте хотя бы один предмет');
   if (explicitIds.length > 8) throw new Error('В одну композицию можно включить до восьми предметов');
   if (exact && (!query || input.mode === 'items' || input.palette !== 'auto')) return Array.from({ length: input.count }, (_, index) => ({
     title: 'Композиция',

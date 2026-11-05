@@ -65,6 +65,14 @@ test('режим предметов сохраняет состав и с авт
     .rejects.toThrow('неизвестный предмет');
 });
 
+test('название предмета с запятой остаётся целым в редактируемом списке', async () => {
+  const catalog = [{ ...items[0], name: 'Книга, открытая' }, items[1]];
+  const options = { ...input, mode: 'items' as const, query: '"Книга, открытая", lamp, ' };
+  const plan = await planWithAI(options, catalog, builtInPalettes, connection,
+    async () => { throw new Error('Запрос не должен выполняться'); });
+  expect(plan.map(p => p.ids)).toEqual([['book', 'lamp'], ['book', 'lamp']]);
+});
+
 test('в метафоре ручное упоминание по имени обязательно, включая имена из нескольких слов', async () => {
   const catalog = [items[0], { ...items[1], name: 'Настольная лампа' }, items[2]];
   const options = { ...input, mode: 'metaphor' as const, query: 'Рядом с @настольная лампа, добавь что-нибудь для учёбы' };

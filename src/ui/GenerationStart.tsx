@@ -1,11 +1,13 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Item, SetInfo } from '../types';
 import type { NamedPalette } from '../palettes';
 import type { Direction, PromptMode } from '../generation';
-import { normalizeItemName } from '../core';
+import { itemListName, normalizeItemName, resolveItemList, resolveItemMentions } from '../core';
 import { CustomSelect } from './CustomSelect';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
+import { textareaTextPoint } from './textarea-anchor';
 
 const formats = [
   { value: '1200x630', label: 'Горизонтальный · 1200 × 630', shortLabel: '1200×630', icon: 'landscape' },
@@ -28,7 +30,6 @@ export type PromptDraft = {
   mode: PromptMode;
   query: string;
   itemQuery: string;
-  requiredItemIds: string[];
   format: string;
   count: number;
   detail: 'default' | 'L' | 'S';
@@ -58,26 +59,84 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [caret, setCaret] = useState(0);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [focused, setFocused] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const input = useRef<HTMLTextAreaElement>(null);
+  const preview = useRef<HTMLDivElement>(null);
+  const popup = useRef<HTMLDivElement>(null);
   const listId = useId();
   const itemMode = draft.mode === 'items';
   const text = itemMode ? draft.itemQuery : draft.query;
-  const tagged = draft.requiredItemIds.flatMap(id => items.find(item => item.id === id) || []);
+  const named = itemMode ? resolveItemList(text, items) : resolveItemMentions(text, items);
   const matches = items.filter(item => item.name.toLowerCase().includes(search.trim().toLowerCase()));
-  const completion = itemQueryAt(text, caret, draft.mode);
+  const caret = selection.start;
+  const completion = caret === selection.end ? itemQueryAt(text, caret, draft.mode) : null;
   const term = normalizeItemName(completion?.term || '');
-  const suggestions = completion ? items.filter(item => !draft.requiredItemIds.includes(item.id) &&
+  const otherIds = new Set(named.ranges.filter(range => !completion || range.end <= completion.start || range.start >= completion.end).map(range => range.id));
+  const suggestions = completion ? items.filter(item => !otherIds.has(item.id) &&
     normalizeItemName(item.name).includes(term))
     .sort((a, b) => Number(normalizeItemName(b.name).startsWith(term)) - Number(normalizeItemName(a.name).startsWith(term)))
     .slice(0, 8) : [];
-  const showSuggestions = focused && !dismissed && !!completion && tagged.length < 8 && (!busy || loadingItems);
   const activeOption = suggestions[highlight] || suggestions[0];
-  const canGenerate = !busy && Boolean(text.trim() || tagged.length) &&
+  const wordStart = completion ? completion.start + (text.slice(completion.start).match(/^\s*/)?.[0].length ?? 0) : 0;
+  const resolvedMention = !itemMode && named.ranges.find(range => range.start === wordStart && range.end <= caret);
+  const showSuggestions = focused && !dismissed && !!completion && otherIds.size < 8 &&
+    (!busy || loadingItems) && (!resolvedMention || suggestions.some(item => item.id !== resolvedMention.id));
+  const canGenerate = !busy && Boolean(text.trim()) &&
     Number.isInteger(draft.count) && draft.count >= 1 && draft.count <= 12;
+
+  useLayoutEffect(() => {
+    const field = input.current, menu = popup.current;
+    if (!showSuggestions || !field || !menu) return;
+
+    const update = () => {
+      const { x, y, bounds } = textareaTextPoint(field, wordStart);
+      const gap = 5, edge = 8;
+      menu.style.left = Math.max(edge, Math.min(x, window.innerWidth - menu.offsetWidth - edge)) + 'px';
+      menu.style.bottom = window.innerHeight - y + gap + 'px';
+      menu.style.maxHeight = Math.min(190, Math.max(0, y - gap - edge)) + 'px';
+      menu.style.visibility = y > edge + gap && y >= bounds.top && y < bounds.bottom ? 'visible' : 'hidden';
+    };
+
+    const onScroll = (event: Event) => {
+      if (!(event.target instanceof Node) || !menu.contains(event.target)) update();
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(field);
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', onScroll, true);
+    };
+  }, [showSuggestions, text, wordStart, loadingItems]);
+
+  useLayoutEffect(() => {
+    const field = input.current, layer = preview.current;
+    if (!field || !layer) return;
+    const sync = () => {
+      layer.style.width = field.clientWidth + 'px';
+      layer.scrollTop = field.scrollTop;
+      layer.scrollLeft = field.scrollLeft;
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(field);
+    field.addEventListener('scroll', sync);
+    return () => { observer.disconnect(); field.removeEventListener('scroll', sync); };
+  }, [text, itemMode, named.ranges.length]);
+
+  function setText(value: string) {
+    change({ ...draft, ...(itemMode ? { itemQuery: value } : { query: value }) });
+  }
+
+  function readSelection(field: HTMLTextAreaElement) {
+    setSelection({ start: field.selectionStart, end: field.selectionEnd });
+  }
 
   function ensureItems() {
     if (!busy && !items.length && setId === 'starter') prepareItems();
@@ -89,8 +148,12 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
     ensureItems();
   }
 
-  function addItem(id: string) {
-    change({ ...draft, requiredItemIds: [...tagged.map(item => item.id), id] });
+  function addItem(item: Item) {
+    const base = text.trimEnd();
+    const separator = !base ? '' : itemMode && !/[,;]$/.test(base) ? ', ' : ' ';
+    const value = base + separator + (itemMode ? itemListName(item.name) + ', ' : '@' + item.name + ' ');
+    if (value.length > 1500) return;
+    setText(value);
     setPickerOpen(false);
   }
 
@@ -104,19 +167,18 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
   }
 
   function selectSuggestion(item: Item) {
-    if (!completion || busy || tagged.length >= 8) return;
+    if (!completion || busy || otherIds.size >= 8) return;
     const before = text.slice(0, completion.start);
     const after = text.slice(completion.end);
-    const inserted = itemMode ? '' : item.name + (after ? '' : ' ');
+    const spacing = itemMode ? text.slice(completion.start).match(/^[ \t]*/)?.[0] || '' : '';
+    const inserted = itemMode
+      ? spacing + itemListName(item.name) + (after ? '' : ', ')
+      : '@' + item.name + (after ? '' : ' ');
     const next = before + inserted + after;
     if (next.length > 1500) return;
-    change({
-      ...draft,
-      ...(itemMode ? { itemQuery: next } : { query: next }),
-      requiredItemIds: [...tagged.map(tag => tag.id), item.id]
-    });
+    setText(next);
     const position = before.length + inserted.length;
-    setCaret(position);
+    setSelection({ start: position, end: position });
     setDismissed(true);
     requestAnimationFrame(() => input.current?.setSelectionRange(position, position));
   }
@@ -147,26 +209,26 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           <Icon name="palette" />Метафора
         </button>
       </div>
-      <div className={itemMode ? 'prompt-editor prompt-editor-items' : 'prompt-editor'}>
-        <div className="prompt-editor-line">
-          {tagged.length > 0 && <div className="prompt-items" role="group" aria-label="Предметы в запросе">
-            {tagged.map(item => <span className="prompt-item" key={item.id}>
-              <span>{item.name}</span>
-              <button type="button" aria-label={`Убрать предмет ${item.name}`} disabled={busy}
-                onClick={() => change({ ...draft, requiredItemIds: draft.requiredItemIds.filter(id => id !== item.id) })}><Icon name="close" /></button>
+      <div className="prompt-editor-line">
+          {named.ranges.length > 0 && <div ref={preview} className="prompt-text-preview" aria-hidden="true">
+            {named.ranges.map(({ start, end }, index) => <span key={start}>
+              {text.slice(named.ranges[index - 1]?.end ?? 0, start)}
+              <mark className="prompt-inline-item">{text.slice(start, end)}</mark>
             </span>)}
+            {text.slice(named.ranges[named.ranges.length - 1].end) + '\u200b'}
           </div>}
-          <textarea ref={input} className="prompt-input" aria-label={itemMode ? 'Названия предметов' : 'Тема или метафора'}
+          <textarea ref={input} className={named.ranges.length ? 'prompt-input has-inline-items' : 'prompt-input'}
+            aria-label={itemMode ? 'Названия предметов' : 'Тема или метафора'}
             aria-autocomplete="list" aria-controls={showSuggestions ? listId : undefined}
             aria-activedescendant={showSuggestions && activeOption ? listId + '-' + activeOption.id : undefined}
             disabled={busy && !loadingItems} maxLength={1500} rows={2} value={text}
-            onFocus={event => { setFocused(true); setCaret(event.currentTarget.selectionStart); }}
+            onFocus={event => { setFocused(true); readSelection(event.currentTarget); }}
             onBlur={() => setFocused(false)}
-            onSelect={event => setCaret(event.currentTarget.selectionStart)}
+            onSelect={event => readSelection(event.currentTarget)}
             onChange={event => {
               const { value, selectionStart } = event.currentTarget;
-              change({ ...draft, ...(itemMode ? { itemQuery: value } : { query: value }) });
-              setCaret(selectionStart);
+              setText(value);
+              readSelection(event.currentTarget);
               setDismissed(false);
               setHighlight(0);
               if (itemQueryAt(value, selectionStart, draft.mode)) ensureItems();
@@ -182,26 +244,28 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
                 const next = (highlight + step + suggestions.length) % suggestions.length;
                 setHighlight(next);
                 document.getElementById(listId + '-' + suggestions[next].id)?.scrollIntoView({ block: 'nearest' });
-              } else if (event.key === 'Enter' && activeOption && !event.shiftKey && !busy) {
+              } else if ((event.key === 'Enter' || event.key === 'Tab') && activeOption &&
+                !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !busy) {
                 event.preventDefault();
                 selectSuggestion(activeOption);
               }
             }}
-            placeholder={itemMode ? 'Начните вводить название предмета' : 'Опишите идею. Введите @, чтобы добавить предмет'} />
-          {showSuggestions && <div className="prompt-suggestions">
+            placeholder={itemMode
+              ? text ? undefined : 'Начните вводить название предмета'
+              : 'Опишите идею. Введите @, чтобы добавить предмет'} />
+          {showSuggestions && createPortal(<div ref={popup} className="prompt-suggestions">
             <div id={listId} role="listbox" aria-label="Подсказки из библиотеки">
               {suggestions.map(item => <div key={item.id} id={listId + '-' + item.id} role="option"
                 aria-selected={item.id === activeOption?.id} onMouseDown={event => event.preventDefault()}
                 onClick={() => selectSuggestion(item)}>{item.name}</div>)}
             </div>
             {!suggestions.length && <p role="status">{loadingItems ? 'Загружаем предметы…' : 'Совпадений в библиотеке нет'}</p>}
-          </div>}
-        </div>
+          </div>, document.body)}
       </div>
       <div className="prompt-toolbar">
         <button className="icon-button prompt-add" type="button" aria-label="Добавить предмет" aria-haspopup="dialog"
-          title={tagged.length >= 8 ? 'Можно добавить до восьми предметов' : 'Добавить предмет'}
-          disabled={busy || tagged.length >= 8} onClick={openPicker}><Icon name="plus" /></button>
+          title={named.ids.length >= 8 ? 'Можно добавить до восьми предметов' : 'Добавить предмет'}
+          disabled={busy || named.ids.length >= 8} onClick={openPicker}><Icon name="plus" /></button>
         <div className="prompt-options">
           <CustomSelect label="Количество вариантов" triggerIcon="layers" value={String(draft.count)} disabled={busy}
             onChange={count => change({ ...draft, count: Number(count) })} options={counts} />
@@ -224,7 +288,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           value={search} onChange={event => setSearch(event.target.value)} />}
         <div className="prompt-item-list">
           {matches.map(item => <button key={item.id} type="button"
-            disabled={busy || tagged.some(tag => tag.id === item.id)} onClick={() => addItem(item.id)}>{item.name}</button>)}
+            disabled={busy || named.ids.includes(item.id)} onClick={() => addItem(item)}>{item.name}</button>)}
         </div>
         {!matches.length && <p className="hint">{busy ? 'Загружаем предметы…' : 'Предметы не найдены.'}</p>}
       </>}

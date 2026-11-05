@@ -39,7 +39,7 @@ function App() {
   const [generation, setGeneration] = useState(0);
   const [palettes, setPalettes] = useState<NamedPalette[]>(builtInPalettes), [paletteId, setPaletteId] = useState('auto'), [paletteOpen, setPaletteOpen] = useState(false);
   const [promptDraft, setPromptDraft] = useState<PromptDraft>({
-    mode: 'metaphor', query: '', itemQuery: '', requiredItemIds: [], format: '1200x630', count: 3, detail: 'default'
+    mode: 'metaphor', query: '', itemQuery: '', format: '1200x630', count: 3, detail: 'default'
   }), [promptResult, setPromptResult] = useState<Direction[]>([]);
   const pendingInput = useRef<GenerationInput | null>(null);
   const keyRequested = useRef(false);
@@ -98,7 +98,6 @@ function App() {
     const input: GenerationInput = {
       mode: promptDraft.mode,
       query: (promptDraft.mode === 'items' ? promptDraft.itemQuery : promptDraft.query).trim(),
-      requiredItemIds: promptDraft.requiredItemIds.filter(id => currentItems.some(item => item.id === id)),
       setId: activeId || 'starter',
       palette: paletteId === 'original' ? 'purple' : paletteId,
       paletteSnapshot: paletteId === 'draft' ? transientPalette || undefined : undefined,
@@ -138,7 +137,7 @@ function App() {
         loadingItems={busy === 'Загружаем названия предметов…'}
         palettes={availablePalettes} paletteId={paletteId} draft={promptDraft} result={promptResult}
         busy={Boolean(busy)} change={setPromptDraft}
-        choose={id => { setActiveId(id); setPromptResult([]); setPromptDraft(draft => ({ ...draft, itemQuery: '', requiredItemIds: [] })); }}
+        choose={id => { setActiveId(id); setPromptResult([]); }}
         choosePalette={choosePromptPalette} generate={generatePrompt} manual={beginManual} own={() => startImport('', true)}
         manage={() => setView('libraries')} finish={() => post('close')} />}
       {view === 'libraries' && <>
