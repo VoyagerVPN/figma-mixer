@@ -124,14 +124,14 @@ try {
 
   await page.goto(base);
   await button('Управление библиотеками').click();
-  await button('Стартовый набор Элементов: 10').click();
+  await button('Библиотека Snap Build Элементов: 10').click();
   assert.equal(await page.getByRole('checkbox', { name: 'Объединить Книга', exact: true }).isVisible(), true);
   await button('Открыть элемент Книга').click();
   await heading('Карточка элемента').waitFor();
   await button('К элементам набора').click();
   await button('Создать композицию').click();
   await heading('Новая композиция').waitFor();
-  assert.ok((await library.innerText()).includes('Стартовый набор'));
+  assert.ok((await library.innerText()).includes('Библиотека Snap Build'));
   console.log('OK карточки библиотеки и переход к основному генератору');
 
   await page.goto(base + '?empty');

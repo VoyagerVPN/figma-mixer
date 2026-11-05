@@ -4,6 +4,7 @@ import type { Item, SetInfo } from '../types';
 import type { NamedPalette } from '../palettes';
 import type { Direction, LayoutChoice, PromptMode } from '../generation';
 import { itemListName, itemListTokens, normalizeItemName, readItemListEntry, resolveItemList, resolveItemMentions } from '../core';
+import { starterLibraryName } from '../library-model';
 import { CustomSelect } from './CustomSelect';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
@@ -185,7 +186,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
     <div className="prompt-sources">
       <CustomSelect label="Библиотека" triggerIcon="grid" value={setId} disabled={busy} onChange={id => id === '__import__' ? own() : choose(id)}
         options={[
-          { value: 'starter', label: 'Стартовый набор', icon: 'grid' },
+          { value: 'starter', label: starterLibraryName, icon: 'grid' },
           ...sets.filter(set => set.id !== 'starter').map(set => ({ value: set.id, label: set.name })),
           { value: '__import__', label: 'Добавить свои элементы…', icon: 'upload' }
         ]} />

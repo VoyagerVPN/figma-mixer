@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { CompositionSelection, DraftItem, Item, RecentComposition, SetInfo } from './types';
+import { starterLibraryName } from './library-model';
 import { ImportWizard } from './ui/ImportWizard';
 import { ItemEditor } from './ui/ItemEditor';
 import { Preview } from './ui/Preview';
@@ -173,9 +174,9 @@ function App() {
       {view === 'libraries' && <>
         <button className="back" onClick={() => setView('home')}><Icon name="arrow" />К генерации</button>
         <section className="home-intro"><h1>Библиотеки</h1><p className="intro">Объедините элементы в набор, затем создавайте из них варианты композиций.</p><div className="action-row"><button className="primary with-icon" disabled={Boolean(busy)} onClick={() => startImport()}><Icon name="plus" />Создать набор</button><button className="with-icon" disabled={Boolean(busy)} onClick={() => { startImport(); command('capture-selection', {}, 'Читаем выделение…'); }}><Icon name="selection" />Из выделения Figma</button></div></section>
-        {!sets.length && <div className="empty-state"><h2>Ваш первый набор</h2><p>Добавьте целые объекты из Figma или несколько SVG-файлов.</p><button disabled={Boolean(busy)} onClick={() => readyLibrary()}>Попробовать на стартовом наборе</button></div>}
+        {!sets.length && <div className="empty-state"><h2>Ваш первый набор</h2><p>Добавьте целые объекты из Figma или несколько SVG-файлов.</p><button disabled={Boolean(busy)} onClick={() => readyLibrary()}>Открыть «{starterLibraryName}»</button></div>}
         <div className="set-list">{sets.map(set => { const group = items.filter(i => i.setId === set.id); return <button className="set-card" key={set.id} onClick={() => openSet(set.id)} disabled={Boolean(busy)}><div className="set-previews">{group.slice(0, 3).map(item => <Preview key={item.id} svg={item.preview} />)}</div><div><strong>{set.name}</strong><span>Элементов: {group.length}</span></div><Icon name="chevron" /></button>; })}</div>
-        {sets.length > 0 && !sets.some(s => s.id === 'starter') && <button className="link-button" onClick={() => readyLibrary()}>Открыть стартовый набор</button>}
+        {sets.length > 0 && !sets.some(s => s.id === 'starter') && <button className="link-button" onClick={() => readyLibrary()}>Открыть «{starterLibraryName}»</button>}
         <p className="hint">Наборы хранятся внутри этого файла Figma. Для переноса используйте экспорт набора.</p>
       </>}
       {view === 'import' && <ImportWizard key="import" forGeneration={importDestination.current !== 'set'} sets={sets} items={draft} targetId={targetId} setItems={setDraft} setTargetId={setTargetId} busy={Boolean(busy)} canSplit={canSplit} skipped={skipped} capture={split => command('capture-selection', { split, fresh: !split }, 'Читаем выделение…')} highlight={nodeId => command('highlight', { nodeId })} save={(name, items, setId) => command('save-set', { name, items, setId }, 'Сохраняем набор…')} cancel={() => { setView(importReturn.current); setDraft([]); setError(''); }} reportError={setError} />}

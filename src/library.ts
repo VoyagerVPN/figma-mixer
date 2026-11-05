@@ -1,5 +1,5 @@
 import bundled from './assets/library.json';
-import { mergeElements, selectionUnits, validateDraft, validateSvg } from './library-model';
+import { mergeElements, selectionUnits, starterLibraryName, validateDraft, validateSvg } from './library-model';
 import type { Asset, Detail, DraftItem, DraftVariant, Item, Role, SetInfo } from './types';
 
 type Metadata = { id: string; setId: string; name: string; description: string; origin: string; detail: Detail; role: Role; label: string };
@@ -18,6 +18,8 @@ export class Library {
     if (this.page) await this.page.loadAsync();
     const saved = figma.root.getPluginData('mixer-sets');
     this.sets = saved ? JSON.parse(saved) : [];
+    const starter = this.sets.find(set => set.id === 'starter');
+    if (starter) starter.name = starterLibraryName;
     // Уже добавленная в прототип библиотека становится стартовым набором без повторного импорта.
     for (const node of this.nodes()) {
       const meta = this.meta(node);
@@ -25,7 +27,7 @@ export class Library {
         meta.setId = meta.origin === 'starter' ? 'starter' : 'legacy';
         node.setPluginData('mixer-item', JSON.stringify(meta));
       }
-      if (!this.sets.some(s => s.id === meta.setId)) this.sets.push({ id: meta.setId, name: meta.setId === 'starter' ? 'Стартовый набор' : 'Импортированные элементы' });
+      if (!this.sets.some(s => s.id === meta.setId)) this.sets.push({ id: meta.setId, name: meta.setId === 'starter' ? starterLibraryName : 'Импортированные элементы' });
     }
     this.persistSets();
     return this.refresh();
@@ -148,7 +150,7 @@ export class Library {
     if (this.sets.some(s => s.id === 'starter')) return this.sets.find(s => s.id === 'starter')!;
     const assets = bundled as Asset[];
     const drafts: DraftItem[] = assets.map(asset => ({ ...asset, preview: '', variants: asset.variants.map(v => ({ ...v, label: `${v.detail} · ${v.role === 'main' ? 'Главный' : 'Фоновый'}` })) }));
-    const set = await this.save('Стартовый набор', drafts);
+    const set = await this.save(starterLibraryName, drafts);
     for (const node of this.nodes()) {
       const meta = this.meta(node);
       if (meta.setId === set.id) { meta.origin = 'starter'; meta.setId = 'starter'; node.setPluginData('mixer-item', JSON.stringify(meta)); }

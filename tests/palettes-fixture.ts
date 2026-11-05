@@ -1,6 +1,7 @@
 import { PaletteStore } from '../src/palette-store';
 import { paletteKey } from '../src/palettes';
 import library from '../src/assets/library.json';
+import { starterLibraryName } from '../src/library-model';
 import { generateCompositions } from '../src/generation';
 import type { CompositionSelection, RecentComposition } from '../src/types';
 import { resolveItemMentions } from '../src/core';
@@ -35,7 +36,7 @@ const sendSelection = () => send({ type: 'composition-selection', frames: select
 let keyReady = new URLSearchParams(location.search).has('connected');
 const savedAI = localStorage.getItem('mixer-ai-config-v1');
 let connection = { ...(savedAI ? validateAIConfig(JSON.parse(savedAI)) : aiPresets.deepseek), apiKey: keyReady ? 'test-key' : '' };
-const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: 'Стартовый набор' }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady, aiConfig: publicAI(connection) });
+const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id: 'starter', name: starterLibraryName }] : []), ...(importedName ? [{ id: 'imported', name: importedName }] : [])], items: [...(starterPresent ? items : []), ...imported], palettes: store.all(), keyReady, aiConfig: publicAI(connection) });
 window.addEventListener('message', event => {
   const m = event.data?.pluginMessage;
   if (m?.type === 'palette-window') document.documentElement.dataset.paletteWindow = String(m.expanded);

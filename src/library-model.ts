@@ -1,5 +1,7 @@
 export type SelectionObject = { id: string; name: string; type: string; children?: readonly SelectionObject[]; parent?: { id: string } | null };
 
+export const starterLibraryName = 'Библиотека Snap Build';
+
 export function selectionUnits<T extends SelectionObject>(selection: readonly T[], splitContainer = false): T[] {
   if (splitContainer) {
     if (selection.length !== 1 || !selection[0].children || selection[0].type === 'COMPONENT_SET') throw new Error('Выделите один контейнер с элементами');
