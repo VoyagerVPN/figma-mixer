@@ -8,17 +8,33 @@ export function validateSelection(value: unknown, catalog: CatalogItem[]) {
   if (result.ids.some(id => typeof id !== 'string' || !catalog.some(item => item.id === id))) throw new Error('Модель вернула неизвестный предмет');
   return { ids: [...new Set(result.ids)] as string[], explanation: typeof result.explanation === 'string' ? result.explanation.slice(0, 700) : '' };
 }
-const normalize = (value: string) => value.toLocaleLowerCase('ru').replace(/ё/g, 'е').trim();
+export const normalizeItemName = (value: string) => value.toLocaleLowerCase('ru').replace(/ё/g, 'е').trim();
 
 export function resolveNames(input: string, catalog: CatalogItem[]) {
   const ids: string[] = [];
   const missing: string[] = [];
   for (const part of input.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean)) {
-    const item = catalog.find(item => normalize(item.name) === normalize(part));
+    const item = catalog.find(item => normalizeItemName(item.name) === normalizeItemName(part));
     if (item) { if (!ids.includes(item.id)) ids.push(item.id); }
     else missing.push(part);
   }
   return { ids, missing };
+}
+
+export function resolveItemMentions(input: string, catalog: CatalogItem[]) {
+  const ids = new Set<string>();
+  const missing: string[] = [];
+  const names = catalog.map(item => ({ id: item.id, name: normalizeItemName(item.name) }))
+    .sort((a, b) => b.name.length - a.name.length);
+  for (const mention of input.matchAll(/(?<![\p{L}\p{N}_.+@-])@/gu)) {
+    const after = input.slice(mention.index + mention[0].length);
+    const search = normalizeItemName(after);
+    const item = names.find(({ name }) => name && search.startsWith(name) &&
+      (search.length === name.length || /[\s,.!?;:…()[\]{}"'«»]/.test(search[name.length])));
+    if (item) ids.add(item.id);
+    else missing.push('@' + (after.trim().match(/^[^\s,.!?;:…()[\]{}@]+/)?.[0] || ''));
+  }
+  return { ids: [...ids], missing };
 }
 
 export type SizedItem = CompositionItem;

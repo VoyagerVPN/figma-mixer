@@ -56,6 +56,24 @@ test('состав из одних плашек компонуется лока�
   expect(plan.map(p => p.ids)).toEqual([['lamp', 'book'], ['lamp', 'book']]);
 });
 
+test('режим предметов сохраняет состав и с автоматической палитрой работает локально', async () => {
+  const withoutAI = async () => { throw new Error('Запрос не должен выполняться'); };
+  const options = { ...input, mode: 'items' as const, requiredItemIds: ['book'] };
+  const plan = await planWithAI({ ...options, query: 'lamp' }, items, builtInPalettes, connection, withoutAI);
+  expect(plan.map(p => p.ids)).toEqual([['book', 'lamp'], ['book', 'lamp']]);
+  await expect(planWithAI({ ...options, query: 'неизвестный предмет' }, items, builtInPalettes, connection, withoutAI))
+    .rejects.toThrow('неизвестный предмет');
+});
+
+test('в метафоре ручное упоминание по имени обязательно, включая имена из нескольких слов', async () => {
+  const catalog = [items[0], { ...items[1], name: 'Настольная лампа' }, items[2]];
+  const options = { ...input, mode: 'metaphor' as const, query: 'Рядом с @настольная лампа, добавь что-нибудь для учёбы' };
+  await expect(planWithAI(options, catalog, builtInPalettes, connection, response({ directions })))
+    .rejects.toThrow('обязательный предмет');
+  await expect(planWithAI({ ...options, query: 'Вечер с @неизвестный' }, catalog, builtInPalettes, connection, response({ directions })))
+    .rejects.toThrow('@неизвестный');
+});
+
 test('весь план проверяется перед созданием; при ошибке рендера удаляются только новые фреймы', async () => {
   const made: any[] = [], removed: string[][] = [];
   const renderer = { create: async (options: any) => { made.push(options); if (made.length === 2) throw new Error('Ошибка рендера'); return { frameIds: ['new-frame'] }; }, removeGenerated: async (ids: string[]) => { removed.push(ids); } };

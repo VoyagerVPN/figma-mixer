@@ -1,10 +1,11 @@
 import type { Item, Palette, SceneOptions } from './types';
 import type { NamedPalette } from './palettes';
 import { resolvePalette } from './palettes';
-import { resolveNames, validateSceneBatch, validateSelection } from './core';
+import { resolveItemMentions, resolveNames, validateSceneBatch, validateSelection } from './core';
 import { requestAIJSON, type AIConnection } from './ai';
 
-export type GenerationInput = { query: string; setId: string; palette: string; paletteSnapshot?: Palette; width: number; height: number; count: number; variant?: number; detail?: SceneOptions['detail']; requiredItemIds?: string[] };
+export type PromptMode = 'items' | 'metaphor';
+export type GenerationInput = { query: string; mode?: PromptMode; setId: string; palette: string; paletteSnapshot?: Palette; width: number; height: number; count: number; variant?: number; detail?: SceneOptions['detail']; requiredItemIds?: string[] };
 export type Direction = { title: string; ids: string[]; palette: string; backgroundIndex: number; style: NonNullable<SceneOptions['style']>; heroId: string; backgroundIds: string[]; explanation: string };
 
 type Generator = { create: (options: SceneOptions) => Promise<{ frameIds: string[]; warnings?: string[] }>; removeGenerated: (ids: string[]) => Promise<void> };
@@ -24,18 +25,22 @@ export async function generateCompositions(input: GenerationInput, items: Item[]
 export async function planWithAI(input: GenerationInput, items: Item[], palettes: NamedPalette[], connection: AIConnection, request: typeof fetch = fetch): Promise<Direction[]> {
   validateSceneBatch(input.count, input.width, input.height);
   const query = input.query?.trim() || '';
-  const requiredIds = [...new Set(input.requiredItemIds || [])];
-  if ((!query && !requiredIds.length) || query.length > 1500) throw new Error('Добавьте предметы или введите запрос до 1500 символов');
+  const requested = input.requiredItemIds || [];
+  if ((!query && !requested.length) || query.length > 1500) throw new Error('Добавьте предметы или введите запрос до 1500 символов');
   if (!items.length) throw new Error('В выбранной библиотеке нет предметов');
+  const mentions = input.mode === 'metaphor' ? resolveItemMentions(query, items) : { ids: [], missing: [] };
+  if (mentions.missing.length) throw new Error('Выберите предмет для упоминания ' + mentions.missing.join(', '));
+  const requiredIds = [...new Set([...requested, ...mentions.ids])];
   const requiredItems = items.filter(item => requiredIds.includes(item.id)).map(({ id, name }) => ({ id, name }));
   if (requiredItems.length !== requiredIds.length) throw new Error('Обязательный предмет недоступен в выбранной библиотеке');
   const fixed = input.palette === 'auto' ? undefined : resolvePalette(input.palette, palettes, input.paletteSnapshot);
   const available = input.palette === 'auto' ? palettes : [{ ...(fixed || palettes[0]), id: input.palette }];
   const named = resolveNames(query, items);
-  const exact = !query || (named.ids.length > 0 && !named.missing.length);
+  if (input.mode === 'items' && named.missing.length) throw new Error('Не найден предмет: ' + named.missing.join(', '));
+  const exact = !query || input.mode === 'items' || (input.mode !== 'metaphor' && named.ids.length > 0 && !named.missing.length);
   const explicitIds = [...new Set([...requiredIds, ...(exact ? named.ids : [])])];
   if (explicitIds.length > 8) throw new Error('В одну композицию можно включить до восьми предметов');
-  if (exact && (!query || input.palette !== 'auto')) return Array.from({ length: input.count }, (_, index) => ({
+  if (exact && (!query || input.mode === 'items' || input.palette !== 'auto')) return Array.from({ length: input.count }, (_, index) => ({
     title: 'Композиция',
     ids: explicitIds,
     palette: input.palette === 'auto' ? palettes[0].id : input.palette,
