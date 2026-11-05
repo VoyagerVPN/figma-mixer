@@ -10,31 +10,50 @@ export function validateSelection(value: unknown, catalog: CatalogItem[]) {
 }
 export const normalizeItemName = (value: string) => value.toLocaleLowerCase('ru').replace(/ё/g, 'е').trim();
 
-export function itemListName(name: string) {
-  return /[,;\n]/.test(name) || name.startsWith('"') ? JSON.stringify(name) : name;
+const backgroundSuffix = /[ \t]*\([ \t]*фон[ \t]*\)$/iu;
+
+export function itemListName(name: string, background = false) {
+  const entry = /[,;\n]/.test(name) || name.startsWith('"') || backgroundSuffix.test(name) ? JSON.stringify(name) : name;
+  return entry + (background ? ' (фон)' : '');
 }
 
-export function resolveItemList(input: string, catalog: CatalogItem[]) {
+export function itemListTokens(input: string) {
+  return Array.from(input.matchAll(/(?:[,;\n]|^)([ \t]*"(?:\\.|[^"\\])*"(?:[ \t]*\([ \t]*фон[ \t]*\))?[ \t]*(?=[,;\n]|$)|[^,;\n]*)/giu), match => {
+    const text = match[1], start = match.index + match[0].length - text.length;
+    return { text, start, end: start + text.length };
+  });
+}
+
+export function readItemListEntry(raw: string, allowBackground = true) {
+  const background = allowBackground && backgroundSuffix.test(raw);
+  let name = background ? raw.replace(backgroundSuffix, '').trimEnd() : raw;
+  if (name.startsWith('"') && name.endsWith('"')) {
+    try { name = JSON.parse(name); } catch { /* Имя может содержать кавычки. */ }
+  }
+  return { name, background };
+}
+
+export function resolveItemList(input: string, catalog: CatalogItem[], allowBackground = true) {
   const ranges: { id: string; start: number; end: number }[] = [];
   const missing: string[] = [];
-  const tokens = /(?:[,;\n]|^)([ \t]*"(?:\\.|[^"\\])*"[ \t]*(?=[,;\n]|$)|[^,;\n]*)/g;
-  for (const token of input.matchAll(tokens)) {
-    const raw = token[1].trim();
+  const backgroundIds = new Set<string>();
+  for (const token of itemListTokens(input)) {
+    const raw = token.text.trim();
     if (!raw) continue;
-    let name = raw;
-    if (raw.startsWith('"') && raw.endsWith('"')) {
-      try { name = JSON.parse(raw); } catch { /* Имя может содержать кавычки. */ }
-    }
+    const { name, background } = readItemListEntry(raw, allowBackground);
     const item = catalog.find(item => normalizeItemName(item.name) === normalizeItemName(name));
-    const start = token.index + token[0].length - token[1].length + token[1].indexOf(raw);
-    if (item) ranges.push({ id: item.id, start, end: start + raw.length });
+    const literal = background && !item ? catalog.find(item => normalizeItemName(item.name) === normalizeItemName(raw)) : undefined;
+    const id = (item ?? literal)?.id;
+    const start = token.start + token.text.indexOf(raw);
+    if (id) ranges.push({ id, start, end: start + raw.length });
     else missing.push(name);
+    if (item && background) backgroundIds.add(item.id);
   }
-  return { ids: [...new Set(ranges.map(range => range.id))], missing, ranges };
+  return { ids: [...new Set(ranges.map(range => range.id))], backgroundIds: [...backgroundIds], missing, ranges };
 }
 
 export function resolveNames(input: string, catalog: CatalogItem[]) {
-  const { ids, missing } = resolveItemList(input, catalog);
+  const { ids, missing } = resolveItemList(input, catalog, false);
   return { ids, missing };
 }
 

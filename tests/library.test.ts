@@ -1,5 +1,7 @@
 import { expect, test, vi } from 'vitest';
 import { selectionUnits, validateDraft, mergeElements, validateSvg, newDraftId } from '../src/library-model';
+import { Library } from '../src/library';
+import { chooseSceneVariant } from '../src/core';
 
 test('три выделенных объекта становятся тремя элементами, внутренности лампы остаются вместе', () => {
   const nodes = [
@@ -36,4 +38,43 @@ test('SVG с растром или внешними ресурсами откл�
   expect(() => validateSvg('<svg><image href="data:image/png;base64,a" /></svg>')).toThrow('вектор');
   expect(() => validateSvg('<svg><use href="https://example.com/a.svg#x" /></svg>')).toThrow('вектор');
   expect(() => validateSvg('<svg><path fill="url(#clip)" d="M0 0L20 0L20 20Z"/></svg>')).not.toThrow();
+});
+
+test('набор вариантов Figma сохраняется под одним именем, роли доступны после повторного открытия', async () => {
+  const svg = '<svg><path d="M0 0L20 0L20 20Z"/></svg>';
+  const metadata = () => {
+    const data = new Map<string, string>();
+    return { getPluginData: (key: string) => data.get(key) || '', setPluginData: (key: string, value: string) => data.set(key, value) };
+  };
+  const component = (role: 'main' | 'background', id: string = role) => ({
+    ...metadata(), type: 'COMPONENT', id, name: 'Role=' + role, width: 100, height: 80,
+    variantProperties: { Role: role, Detail: 'L' },
+    exportAsync: async () => svg,
+    clone: () => component(role, id + '-copy')
+  });
+  const main = component('main'), background = component('background');
+  const componentSet = { id: 'book', name: 'Книга', type: 'COMPONENT_SET', description: '', children: [main, background], defaultVariant: main };
+  const children: ReturnType<typeof component>[] = [];
+  const page = { ...metadata(), children, appendChild: (node: ReturnType<typeof component>) => children.push(node), loadAsync: async () => {} };
+  const pages: typeof page[] = [];
+  vi.stubGlobal('figma', {
+    root: { ...metadata(), children: pages },
+    currentPage: { selection: [componentSet] },
+    getNodeByIdAsync: async (id: string) => [main, background].find(node => node.id === id),
+    createPage: () => { pages.push(page); return page; },
+    commitUndo: () => {}
+  });
+  try {
+    const library = new Library();
+    const captured = await library.captureSelection();
+    await library.save('Книги', captured.items);
+    const reopened = new Library();
+    await reopened.init();
+    expect(reopened.items.map(item => item.name)).toEqual(['Книга']);
+    const [book] = reopened.items;
+    expect(chooseSceneVariant(book.variants, 'L', 'main').nodeId).toBe('main-copy');
+    expect(chooseSceneVariant(book.variants, 'L', 'background').nodeId).toBe('background-copy');
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

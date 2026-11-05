@@ -173,6 +173,22 @@ try {
   assert.deepEqual(manual.directions.map(p => p.ids), [['starter-2', 'starter-1', 'starter-5']]);
   const rendered = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.equal(rendered.style, 'airy');
+  await itemInput.fill('Кни');
+  await suggestions.getByRole('option', { name: 'Книга', exact: true }).waitFor();
+  await itemInput.press('Shift+Tab');
+  assert.equal(await itemInput.inputValue(), 'Книга (фон), ');
+  await page.keyboard.insertText('Нау');
+  await suggestions.getByRole('button', { name: 'Добавить фоном: Наушники', exact: true }).waitFor();
+  await page.screenshot({ path: resolve(output, 'background-suggestion.png') });
+  await suggestions.getByRole('button', { name: 'Добавить фоном: Наушники', exact: true }).click();
+  assert.equal(await itemInput.inputValue(), 'Книга (фон), Наушники (фон), ');
+  await prompt.getByRole('button', { name: 'Добавить предмет', exact: true }).click();
+  const picker = page.getByRole('dialog', { name: 'Добавить предмет', exact: true });
+  await picker.getByRole('button', { name: 'Добавить фоном: Телефон', exact: true }).click();
+  assert.equal(await itemInput.inputValue(), 'Книга (фон), Наушники (фон), Телефон (фон), ');
+  await itemInput.press('Control+Enter');
+  await page.waitForFunction(() => JSON.parse(document.documentElement.dataset.created || '{}').backgroundIds?.length === 3);
+  assert.deepEqual(JSON.parse(await page.locator('html').getAttribute('data-created')).backgroundIds, ['starter-2', 'starter-4', 'starter-3']);
   for (const [ratio, width, height] of [['4:3', 1440, 1080], ['5:4', 1350, 1080], ['3:4', 1080, 1440], ['9:16', 720, 1280]]) {
     await aspect.click();
     await page.getByRole('option', { name: new RegExp(`^${ratio} `) }).click();

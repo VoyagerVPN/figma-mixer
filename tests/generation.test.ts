@@ -128,6 +128,23 @@ test('название предмета с запятой остаётся це�
   expect(plan.map(p => p.ids)).toEqual([['book', 'lamp'], ['book', 'lamp']]);
 });
 
+test('пометка фона в списке выбирает готовые фоновые версии для всей пачки', async () => {
+  const catalog: Item[] = items.map((item, i) => ({
+    ...item,
+    name: ['Книга, открытая', 'Лампа', 'Телефон (фон)'][i],
+    variants: i === 1 ? item.variants : [...item.variants, { ...item.variants[0], nodeId: item.id + '-bg', role: 'background' }]
+  }));
+  const options = { ...input, mode: 'items' as const, query: '"Книга, открытая" (фон), Лампа, "Телефон (фон)" (ФОН)' };
+  const withoutAI = async () => { throw new Error('Запрос не должен выполняться'); };
+  const plan = await planWithAI(options, catalog, builtInPalettes, connection, withoutAI);
+  expect(plan.map(p => p.ids)).toEqual([['book', 'lamp', 'phone'], ['book', 'lamp', 'phone']]);
+  expect(plan.map(p => p.backgroundIds)).toEqual([['book', 'phone'], ['book', 'phone']]);
+  const plain = await planWithAI({ ...options, query: '"Телефон (фон)"' }, catalog, builtInPalettes, connection, withoutAI);
+  expect(plain[0].backgroundIds).toEqual([]);
+  await expect(planWithAI({ ...options, query: 'Лампа (фон)' }, catalog, builtInPalettes, connection, withoutAI))
+    .rejects.toThrow('нет фоновой версии');
+});
+
 test('в метафоре ручное упоминание по имени обязательно, включая имена из нескольких слов', async () => {
   const catalog = [items[0], { ...items[1], name: 'Настольная лампа' }, items[2]];
   const options = { ...input, mode: 'metaphor' as const, query: 'Рядом с @настольная лампа, добавь что-нибудь для учёбы' };

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Item, SetInfo } from '../types';
 import type { NamedPalette } from '../palettes';
 import type { Direction, PromptMode } from '../generation';
-import { itemListName, normalizeItemName, resolveItemList, resolveItemMentions } from '../core';
+import { itemListName, itemListTokens, normalizeItemName, readItemListEntry, resolveItemList, resolveItemMentions } from '../core';
 import { CustomSelect } from './CustomSelect';
 import { Icon } from './Icon';
 import { Panel } from './Panel';
@@ -30,13 +30,10 @@ export type PromptDraft = {
 function itemQueryAt(text: string, caret: number, mode: PromptMode) {
   const before = text.slice(0, caret);
   if (mode === 'items') {
-    const fragment = before.match(/[^,;\n]*$/)![0];
-    if (!fragment.trim()) return null;
-    return {
-      term: fragment.trim(),
-      start: caret - fragment.length,
-      end: caret + (text.slice(caret).match(/^[^,;\n]*/)?.[0].length || 0)
-    };
+    const token = itemListTokens(text).find(token => caret >= token.start && caret <= token.end);
+    if (!token) return null;
+    const { name } = readItemListEntry(text.slice(token.start, caret).trim());
+    return name ? { term: name, start: token.start, end: token.end } : null;
   }
   const mention = before.match(/(?<![\p{L}\p{N}_.+@-])@([^@\n,;:!?()[\]{}]*)$/u);
   if (!mention) return null;
@@ -62,6 +59,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
   const itemMode = draft.mode === 'items';
   const text = itemMode ? draft.itemQuery : draft.query;
   const named = itemMode ? resolveItemList(text, items) : resolveItemMentions(text, items);
+  const backgroundItems = new Set(itemMode ? items.filter(item => item.variants.some(v => v.role === 'background')).map(item => item.id) : []);
   const matches = items.filter(item => item.name.toLowerCase().includes(search.trim().toLowerCase()));
   const caret = selection.start;
   const completion = caret === selection.end ? itemQueryAt(text, caret, draft.mode) : null;
@@ -140,10 +138,10 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
     ensureItems();
   }
 
-  function addItem(item: Item) {
+  function addItem(item: Item, background = false) {
     const base = text.trimEnd();
     const separator = !base ? '' : itemMode && !/[,;]$/.test(base) ? ', ' : ' ';
-    const value = base + separator + (itemMode ? itemListName(item.name) + ', ' : '@' + item.name + ' ');
+    const value = base + separator + (itemMode ? itemListName(item.name, background) + ', ' : '@' + item.name + ' ');
     if (value.length > 1500) return;
     setText(value);
     setPickerOpen(false);
@@ -158,13 +156,13 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
     requestAnimationFrame(() => input.current?.focus());
   }
 
-  function selectSuggestion(item: Item) {
+  function selectSuggestion(item: Item, background = false) {
     if (!completion || busy || otherIds.size >= 8) return;
     const before = text.slice(0, completion.start);
     const after = text.slice(completion.end);
     const spacing = itemMode ? text.slice(completion.start).match(/^[ \t]*/)?.[0] || '' : '';
     const inserted = itemMode
-      ? spacing + itemListName(item.name) + (after ? '' : ', ')
+      ? spacing + itemListName(item.name, background) + (after ? '' : ', ')
       : '@' + item.name + (after ? '' : ' ');
     const next = before + inserted + after;
     if (next.length > 1500) return;
@@ -242,6 +240,10 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
                 const next = (highlight + step + suggestions.length) % suggestions.length;
                 setHighlight(next);
                 document.getElementById(listId + '-' + suggestions[next].id)?.scrollIntoView({ block: 'nearest' });
+              } else if (event.key === 'Tab' && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey &&
+                !busy && activeOption && backgroundItems.has(activeOption.id)) {
+                event.preventDefault();
+                selectSuggestion(activeOption, true);
               } else if ((event.key === 'Enter' || event.key === 'Tab') && activeOption &&
                 !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !busy) {
                 event.preventDefault();
@@ -253,9 +255,13 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
               : 'Опишите идею. Введите @, чтобы добавить предмет'} />
           {showSuggestions && createPortal(<div ref={popup} className="prompt-suggestions">
             <div id={listId} role="listbox" aria-label="Подсказки из библиотеки">
-              {suggestions.map(item => <div key={item.id} id={listId + '-' + item.id} role="option"
-                aria-selected={item.id === activeOption?.id} onMouseDown={event => event.preventDefault()}
-                onClick={() => selectSuggestion(item)}>{item.name}</div>)}
+              {suggestions.map(item => <div key={item.id} className="prompt-suggestion-row" role="presentation" onMouseDown={event => event.preventDefault()}>
+                <div id={listId + '-' + item.id} role="option" aria-selected={item.id === activeOption?.id}
+                  onClick={() => selectSuggestion(item)}>{item.name}</div>
+                {backgroundItems.has(item.id) && <button type="button" className="prompt-background-action" tabIndex={-1}
+                  aria-label={'Добавить фоном: ' + item.name} aria-keyshortcuts="Shift+Tab" title="Добавить фоном (Shift+Tab)" disabled={busy}
+                  onClick={() => selectSuggestion(item, true)}><Icon name="layers" /></button>}
+              </div>)}
             </div>
             {!suggestions.length && <p role="status">{loadingItems ? 'Загружаем предметы…' : 'Совпадений в библиотеке нет'}</p>}
           </div>, document.body)}
@@ -292,8 +298,12 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
         {items.length > 0 && <input aria-label="Найти предмет" placeholder="Название предмета" autoFocus
           value={search} onChange={event => setSearch(event.target.value)} />}
         <div className="prompt-item-list">
-          {matches.map(item => <button key={item.id} type="button"
-            disabled={busy || named.ids.includes(item.id)} onClick={() => addItem(item)}>{item.name}</button>)}
+          {matches.map(item => <div key={item.id} className="prompt-picker-row">
+            <button type="button" disabled={busy || named.ids.includes(item.id)} onClick={() => addItem(item)}>{item.name}</button>
+            {backgroundItems.has(item.id) && <button type="button" className="prompt-background-action"
+              aria-label={'Добавить фоном: ' + item.name} title="Добавить фоном" disabled={busy || named.ids.includes(item.id)}
+              onClick={() => addItem(item, true)}><Icon name="layers" /></button>}
+          </div>)}
         </div>
         {!matches.length && <p className="hint">{busy ? 'Загружаем предметы…' : 'Предметы не найдены.'}</p>}
       </>}

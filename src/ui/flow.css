@@ -15,8 +15,12 @@
 .prompt-mode>button[aria-pressed=true]{border-color:var(--line);background:var(--surface);color:var(--ink)}
 .prompt-mode>button>.ui-icon{width:13px;height:13px}
 .prompt-suggestions{position:fixed;z-index:5;visibility:hidden;width:min(224px,calc(100vw - 16px));max-height:190px;overflow:auto;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 8px 24px #0002}
-.prompt-suggestions [role=option]{padding:6px 9px;border-radius:5px;cursor:pointer;font-size:12px;overflow-wrap:anywhere}
-.prompt-suggestions [role=option]:hover,.prompt-suggestions [aria-selected=true]{background:var(--raised)}
+.prompt-suggestion-row{display:flex;align-items:center;border-radius:5px}
+.prompt-suggestion-row:hover,.prompt-suggestion-row:has(>[aria-selected=true]){background:var(--raised)}
+.prompt-suggestions [role=option]{flex:1;min-width:0;padding:6px 9px;cursor:pointer;font-size:12px;overflow-wrap:anywhere}
+.prompt-background-action{display:grid;place-items:center;flex:none;width:28px;min-height:26px;padding:0;border:0;background:transparent;color:var(--muted)}
+.prompt-background-action:hover{color:var(--ink);background:var(--surface)}
+.prompt-background-action .ui-icon{width:13px;height:13px}
 .prompt-suggestions>p{margin:0;padding:6px 9px;font-size:12px}
 .prompt-editor-line{position:relative}
 .prompt-editor-line>.prompt-input,.prompt-text-preview{margin:0;padding:4px 3px 12px;border:0;font:inherit;font-size:14px;line-height:22px;letter-spacing:normal;white-space:pre-wrap;overflow-wrap:break-word}
@@ -44,7 +48,8 @@
 .prompt-library-actions{display:flex;flex-wrap:wrap;column-gap:16px;margin-top:5px}
 .prompt-library-actions>.text-button{padding-left:0;color:var(--muted)}
 .prompt-item-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:10px}
-.prompt-item-list>button{overflow-wrap:anywhere;text-align:left}
+.prompt-picker-row{display:flex;align-items:center;min-width:0}
+.prompt-picker-row>button:first-child{flex:1;min-width:0;overflow-wrap:anywhere;text-align:left}
 .prompt-results{border-top:1px solid var(--line);margin-top:24px;padding-top:24px}
 .prompt-results h2{font-size:13px}
 .select-color-strip{display:inline-flex;flex-shrink:0;overflow:hidden;border:1px solid #0001;border-radius:3px}

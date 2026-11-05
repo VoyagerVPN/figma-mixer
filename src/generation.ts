@@ -1,7 +1,7 @@
 import type { Item, Palette, SceneOptions } from './types';
 import type { NamedPalette } from './palettes';
 import { resolvePalette } from './palettes';
-import { resolveItemMentions, resolveNames, validateSceneBatch, validateSelection } from './core';
+import { resolveItemList, resolveItemMentions, validateSceneBatch, validateSelection } from './core';
 import { requestAIJSON, type AIConnection } from './ai';
 
 export type PromptMode = 'items' | 'metaphor';
@@ -35,8 +35,10 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
   if (requiredItems.length !== requiredIds.length) throw new Error('Обязательный предмет недоступен в выбранной библиотеке');
   const fixed = input.palette === 'auto' ? undefined : resolvePalette(input.palette, palettes, input.paletteSnapshot);
   const available = input.palette === 'auto' ? palettes : [{ ...(fixed || palettes[0]), id: input.palette }];
-  const named = resolveNames(query, items);
+  const named = resolveItemList(query, items, input.mode === 'items');
   if (input.mode === 'items' && named.missing.length) throw new Error('Не найден предмет: ' + named.missing.join(', '));
+  const unavailableBackground = items.find(item => named.backgroundIds.includes(item.id) && !item.variants.some(v => v.role === 'background'));
+  if (unavailableBackground) throw new Error('У «' + unavailableBackground.name + '» нет фоновой версии');
   const exact = !query || input.mode === 'items' || (input.mode !== 'metaphor' && named.ids.length > 0 && !named.missing.length);
   const explicitIds = [...new Set([...requiredIds, ...(exact ? named.ids : [])])];
   if (exact && !explicitIds.length) throw new Error('Добавьте хотя бы один предмет');
@@ -49,7 +51,7 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
     backgroundIndex: 0,
     style: itemStyle ?? (index % 2 === 0 ? 'balanced' : 'airy'),
     heroId: '',
-    backgroundIds: [],
+    backgroundIds: named.backgroundIds,
     explanation: 'Использован указанный состав.'
   }));
   const system = [
