@@ -196,7 +196,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           <Icon name="edit" />Предметы
         </button>
         <button type="button" aria-pressed={!itemMode} disabled={busy} onClick={() => switchMode('metaphor')}>
-          <Icon name="palette" />Метафора
+          <Icon name="astroid" />Метафора
         </button>
       </div>
       <div className="prompt-editor-line">

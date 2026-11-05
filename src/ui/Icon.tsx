@@ -23,6 +23,7 @@ const paths = {
     ratio3x4: 'M3.2 1.6h9.6v12.8H3.2z',
     ratio9x16: 'M4.4 1.6h7.2v12.8H4.4z',
     palette: 'M8 1.5a6.5 6.5 0 1 0 0 13h1a1.5 1.5 0 0 0 1-2.6 1.5 1.5 0 0 1 1-2.6h1.5a2 2 0 0 0 2-2A6 6 0 0 0 8 1.5M4.5 5.5h.01M8 4h.01M11.5 5.5h.01M4 9h.01',
+    astroid: 'M12.983 21.186a1 1 0 0 1-1.966 0 10 10 0 0 0-8.203-8.203 1 1 0 0 1 0-1.966 10 10 0 0 0 8.203-8.203 1 1 0 0 1 1.966 0 10 10 0 0 0 8.203 8.203 1 1 0 0 1 0 1.966 10 10 0 0 0-8.203 8.203',
     crop: 'M5 1v10h10M1 5h10v10',
     detail: 'M2 4h3m3 0h6M2 8h6m3 0h3M2 12h3m3 0h6M5 2.5v3m6 1v3m-6 1v3',
     save: 'M2 2h10l2 2v10H2zM5 2v4h6V2M5 14V9h6v5',
@@ -36,6 +37,7 @@ export type IconName = keyof typeof paths;
 
 export function Icon({ name }: { name: IconName }) {
   const settings = name === 'settings';
-  // Lucide Settings, лицензия ISC: licenses/lucide-settings.txt.
-  return <svg className="ui-icon" width="16" height="16" viewBox={settings ? "0 0 24 24" : "0 0 16 16"} fill="none" stroke="currentColor" strokeWidth={settings ? 2.25 : 1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} />{settings && <circle cx="12" cy="12" r="3" />}</svg>;
+  const lucide = settings || name === 'astroid';
+  // Иконки Lucide распространяются по лицензии ISC (licenses/lucide-settings.txt).
+  return <svg className="ui-icon" width="16" height="16" viewBox={lucide ? "0 0 24 24" : "0 0 16 16"} fill="none" stroke="currentColor" strokeWidth={lucide ? 2.25 : 1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false"><path d={paths[name]} />{settings && <circle cx="12" cy="12" r="3" />}</svg>;
 }

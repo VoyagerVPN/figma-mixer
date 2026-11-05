@@ -1,5 +1,6 @@
-Lucide Settings icon
+Lucide Settings and Astroid icons
 https://lucide.dev/icons/settings
+https://lucide.dev/icons/astroid
 
 ISC License
 
