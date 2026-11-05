@@ -33,7 +33,7 @@ try {
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-openai-key');
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor({ state: 'hidden' });
-  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Обучение через практику');
+  await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).fill('Обучение через практику');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
   const sent = JSON.parse(await page.locator('html').getAttribute('data-ai-request'));

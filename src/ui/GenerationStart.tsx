@@ -17,7 +17,7 @@ const details = [
   { value: 'S', label: 'S · Упрощённая', shortLabel: 'S' }
 ] as const;
 const layoutOptions = [
-  { value: 'auto', label: 'Пусть AI выберет', shortLabel: 'Авто', icon: 'astroid' },
+  { value: 'auto', label: 'Авто', icon: 'astroid' },
   ...compositionLayouts
 ] as const;
 
@@ -191,7 +191,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
         ]} />
       <CustomSelect label="Палитра" triggerIcon="palette" value={paletteId === 'original' ? 'purple' : paletteId} disabled={busy} onChange={choosePalette}
         options={[
-          { value: 'auto', label: 'Пусть AI выберет', shortLabel: 'Авто', icon: 'palette' },
+          { value: 'auto', label: 'Авто', icon: 'palette' },
           ...palettes.map(p => ({ value: p.id, label: p.name, colors: [...p.background, ...p.object_accents] })),
           { value: '__manage__', label: 'Настроить палитры…', icon: 'edit' }
         ]} />
@@ -202,7 +202,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           <Icon name="edit" />Предметы
         </button>
         <button type="button" aria-pressed={!itemMode} disabled={busy} onClick={() => switchMode('metaphor')}>
-          <Icon name="astroid" />Метафора
+          <Icon name="astroid" />Идеи
         </button>
       </div>
       <div className="prompt-editor-line">
@@ -214,7 +214,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
             {text.slice(named.ranges[named.ranges.length - 1].end) + '\u200b'}
           </div>}
           <textarea ref={input} className={named.ranges.length ? 'prompt-input has-inline-items' : 'prompt-input'}
-            aria-label={itemMode ? 'Названия предметов' : 'Тема или метафора'}
+            aria-label={itemMode ? 'Названия предметов' : 'Идея или заголовок'}
             aria-autocomplete="list" aria-controls={showSuggestions ? listId : undefined}
             aria-activedescendant={showSuggestions && activeOption ? listId + '-' + activeOption.id : undefined}
             disabled={busy && !loadingItems} maxLength={1500} rows={2} value={text}

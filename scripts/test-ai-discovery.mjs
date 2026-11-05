@@ -91,7 +91,7 @@ try {
   console.log('OK смена сервиса отбрасывает запоздалый список; повторный запрос использует новый адрес');
 
   await page.goto(base + '?model-list-error');
-  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Командная работа');
+  await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).fill('Командная работа');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor();
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
@@ -100,7 +100,7 @@ try {
   await page.getByRole('combobox', { name: 'Модель', exact: true }).fill('manual-chat-model');
   await page.getByRole('button', { name: 'Сохранить и сгенерировать', exact: true }).click();
   await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
-  assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Командная работа');
+  assert.equal(await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).inputValue(), 'Командная работа');
   console.log('OK недоступный список оставляет ручной ввод и не отменяет исходную генерацию');
   assert.deepEqual(errors, []);
 } finally { await browser.close(); await new Promise(done => server.close(done)); }

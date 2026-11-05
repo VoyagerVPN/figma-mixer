@@ -28,7 +28,7 @@ try {
   const prompt = page.getByRole('group', { name: 'Запрос композиции', exact: true });
   const layout = prompt.getByRole('combobox', { name: 'Построение', exact: true });
   assert.equal(await layout.innerText(), 'Авто');
-  await prompt.getByRole('textbox', { name: 'Тема или метафора', exact: true }).waitFor();
+  await prompt.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).waitFor();
   for (const name of ['Соотношение сторон', 'Детализация']) {
     assert.equal(await prompt.getByRole('combobox', { name, exact: true }).isVisible(), true);
   }
@@ -58,13 +58,16 @@ try {
   assert.equal(await more.isDisabled(), true);
   for (let index = 12; index > 1; index--) await less.click();
   const palette = page.getByRole('combobox', { name: 'Палитра', exact: true });
+  await palette.click();
+  assert.equal(await page.getByRole('listbox', { name: 'Палитра', exact: true }).getByRole('option', { name: 'Авто', exact: true }).isVisible(), true);
+  await page.keyboard.press('Escape');
   const [paletteBounds, promptBounds] = await Promise.all([palette.boundingBox(), prompt.boundingBox()]);
   assert.ok(paletteBounds.y + paletteBounds.height <= promptBounds.y);
   assert.equal(await prompt.getByRole('combobox', { name: 'Палитра', exact: true }).count(), 0);
   await page.screenshot({ path: resolve(output, 'prompt.png') });
   assert.equal(await page.locator('.compose-items:visible').count(), 0);
   const suggestions = page.getByRole('listbox', { name: 'Подсказки из библиотеки', exact: true });
-  const metaphor = prompt.getByRole('textbox', { name: 'Тема или метафора', exact: true });
+  const metaphor = prompt.getByRole('textbox', { name: 'Идея или заголовок', exact: true });
   await metaphor.press('Control+Enter');
   assert.equal(await metaphor.inputValue(), '');
   assert.equal(await page.locator('html').getAttribute('data-ai-request'), null);
@@ -162,14 +165,14 @@ try {
   await itemInput.fill('Книга, ' + 'а'.repeat(250));
   assert.equal(await itemInput.evaluate(node => node.scrollWidth <= node.clientWidth), true);
   await itemInput.fill(itemDraft);
-  await prompt.getByRole('button', { name: 'Метафора', exact: true }).click();
+  await prompt.getByRole('button', { name: 'Идеи', exact: true }).click();
   assert.equal(await layout.innerText(), 'Авто');
   assert.equal(await metaphor.inputValue(), '');
   await metaphor.fill('Вечер за @Телефон');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   assert.equal(await layout.innerText(), 'Свободный центр');
   assert.equal(await itemInput.inputValue(), itemDraft);
-  await prompt.getByRole('button', { name: 'Метафора', exact: true }).click();
+  await prompt.getByRole('button', { name: 'Идеи', exact: true }).click();
   assert.equal(await metaphor.inputValue(), 'Вечер за @Телефон');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   await page.screenshot({ path: resolve(output, 'items-inline.png') });
@@ -214,7 +217,7 @@ try {
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
   await itemInput.fill('Книга (фон), Лампа');
   await layout.click();
-  await page.getByRole('listbox', { name: 'Построение', exact: true }).getByRole('option', { name: 'Пусть AI выберет', exact: true }).click();
+  await page.getByRole('listbox', { name: 'Построение', exact: true }).getByRole('option', { name: 'Авто', exact: true }).click();
   assert.equal(await layout.innerText(), 'Авто');
   await itemInput.press('Control+Enter');
   const autoSettings = page.getByRole('dialog', { name: 'Подключение AI', exact: true });
@@ -226,7 +229,7 @@ try {
   console.log('OK автопостроение в режиме предметов запрашивает AI и сохраняет состав и фон');
 
   await page.goto(base + '?empty');
-  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Сложная задача и новые идеи');
+  await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).fill('Сложная задача и новые идеи');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor();
   await page.getByRole('textbox', { name: 'API-ключ', exact: true }).fill('test-key');
@@ -234,18 +237,18 @@ try {
   assert.equal(await saveAndGenerate.isEnabled(), true);
   await saveAndGenerate.click();
   await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
-  assert.equal(await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).inputValue(), 'Сложная задача и новые идеи');
+  assert.equal(await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).inputValue(), 'Сложная задача и новые идеи');
   console.log('OK подключение ключа продолжает исходный запрос без повторного ввода');
 
   await page.goto(base + '?connected&ai-error');
-  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Новая идея');
+  await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).fill('Новая идея');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: 'неизвестный предмет' }).waitFor();
   assert.equal(await page.locator('html').getAttribute('data-created'), null);
   assert.equal(await page.getByRole('button', { name: 'Создать композиции', exact: true }).isEnabled(), true);
   console.log('OK ошибочный AI-план не создаёт фреймы и сохраняет запрос');
   await page.goto(base);
-  await page.getByRole('textbox', { name: 'Тема или метафора', exact: true }).fill('Новая идея');
+  await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).fill('Новая идея');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).getByRole('button', { name: 'Закрыть панель', exact: true }).click();
   await page.getByRole('button', { name: 'Настройки AI', exact: true }).click();
