@@ -260,7 +260,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
           <div className="prompt-count" role="group" aria-label="Количество вариантов">
             <button type="button" aria-label="Меньше вариантов" title="Меньше вариантов" disabled={busy || draft.count <= 1}
               onClick={() => change({ ...draft, count: draft.count - 1 })}><Icon name="minus" /></button>
-            <output title="Количество вариантов">{draft.count}</output>
+            <output title="Количество вариантов">{draft.count} вар.</output>
             <button type="button" aria-label="Больше вариантов" title="Больше вариантов" disabled={busy || draft.count >= 12}
               onClick={() => change({ ...draft, count: draft.count + 1 })}><Icon name="plus" /></button>
           </div>

@@ -31,14 +31,18 @@ try {
   }
   const aspect = prompt.getByRole('combobox', { name: 'Соотношение сторон', exact: true });
   assert.equal(await aspect.innerText(), '16:9');
+  await aspect.click();
+  const aspectOptions = await page.getByRole('listbox', { name: 'Соотношение сторон' }).getByRole('option').allTextContents();
+  assert.deepEqual(aspectOptions.map(option => option.split(' · ')[0]), ['16:9', '4:3', '5:4', '1:1', '4:5', '3:4', '9:16']);
+  await page.keyboard.press('Escape');
   const variants = prompt.getByRole('group', { name: 'Количество вариантов', exact: true });
   const count = variants.getByRole('status');
   const less = variants.getByRole('button', { name: 'Меньше вариантов', exact: true });
   const more = variants.getByRole('button', { name: 'Больше вариантов', exact: true });
-  assert.equal(await count.innerText(), '1');
+  assert.equal(await count.innerText(), '1 вар.');
   assert.equal(await less.isDisabled(), true);
   for (let index = 1; index < 12; index++) await more.click();
-  assert.equal(await count.innerText(), '12');
+  assert.equal(await count.innerText(), '12 вар.');
   assert.equal(await more.isDisabled(), true);
   for (let index = 12; index > 1; index--) await less.click();
   const palette = page.getByRole('combobox', { name: 'Палитра', exact: true });
@@ -75,7 +79,7 @@ try {
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
   assert.equal(await metaphor.inputValue(), query);
-  assert.equal(await count.innerText(), '3');
+  assert.equal(await count.innerText(), '3 вар.');
   const generated = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
   assert.equal(generated.directions.length, 3);
   assert.equal(generated.directions.every(p => p.ids.includes('starter-2')), true);
@@ -143,6 +147,15 @@ try {
   assert.equal(await page.locator('html').getAttribute('data-ai-request'), null);
   const manual = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
   assert.deepEqual(manual.directions.map(p => p.ids), [['starter-2', 'starter-1', 'starter-5']]);
+  for (const [ratio, width, height] of [['4:3', 1440, 1080], ['5:4', 1350, 1080], ['3:4', 1080, 1440], ['9:16', 720, 1280]]) {
+    await aspect.click();
+    await page.getByRole('option', { name: new RegExp(`^${ratio} · `) }).click();
+    await prompt.getByRole('button', { name: 'Создать композиции', exact: true }).click();
+    await page.waitForFunction(([w, h]) => {
+      const frame = JSON.parse(document.documentElement.dataset.created || '{}');
+      return frame.width === w && frame.height === h;
+    }, [width, height]);
+  }
   console.log('OK предметы по буквам → выбор Tab и мышью → точный состав без AI');
 
   await page.goto(base + '?empty');

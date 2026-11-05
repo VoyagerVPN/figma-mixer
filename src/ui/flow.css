@@ -30,7 +30,7 @@
 .prompt-options{display:flex;flex-wrap:wrap;gap:3px}
 .prompt-options>.select-field{margin:0}
 .prompt-count{display:inline-flex;align-items:center;gap:1px;margin-right:4px;font-size:11px;font-variant-numeric:tabular-nums}
-.prompt-count>output{min-width:2ch;text-align:center}
+.prompt-count>output{min-width:6ch;text-align:center;white-space:nowrap}
 .prompt-count>button{display:grid;place-items:center;width:22px;min-height:26px;padding:0;border:0;background:transparent}
 .prompt-count>button:is(:hover,:focus-visible):enabled{background:var(--surface);outline:none}
 .prompt-count .ui-icon{width:13px;height:13px}
