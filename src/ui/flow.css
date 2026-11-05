@@ -30,7 +30,7 @@
 .prompt-options{display:flex;flex-wrap:wrap;gap:3px}
 .prompt-options>.select-field{margin:0}
 .prompt-options .select-trigger{min-height:26px;height:26px;padding:3px 5px;gap:3px;border-color:transparent;background:transparent;font-size:11px}
-.prompt-options .select-trigger:hover{background:var(--surface);border-color:var(--line)}
+.prompt-options .select-trigger:is(:hover,:focus-visible,[data-state=open]){background:var(--surface);border-color:transparent;outline:none}
 .prompt-options .select-compact-value{gap:4px}
 .prompt-options .select-compact-value>.ui-icon{width:14px;height:14px}
 .prompt-options .select-chevron>svg{width:10px;height:10px}

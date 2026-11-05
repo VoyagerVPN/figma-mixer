@@ -6,3 +6,4 @@ input,textarea,[contenteditable=true]{user-select:text;-webkit-user-select:text}
 ::-webkit-scrollbar-thumb{background:#c4c4cb;border-radius:8px}
 ::-webkit-scrollbar-thumb:hover{background:#a5a5ae}
 [tabindex]:focus-visible{outline:2px solid #77777f;outline-offset:3px}
+.select-menu .select-option:focus-visible{outline:none}
