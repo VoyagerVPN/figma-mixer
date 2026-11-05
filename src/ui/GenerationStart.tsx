@@ -2,7 +2,7 @@ import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Item, SetInfo } from '../types';
 import type { NamedPalette } from '../palettes';
-import type { Direction, ItemLayout, PromptMode } from '../generation';
+import type { Direction, LayoutChoice, PromptMode } from '../generation';
 import { itemListName, itemListTokens, normalizeItemName, readItemListEntry, resolveItemList, resolveItemMentions } from '../core';
 import { CustomSelect } from './CustomSelect';
 import { Icon } from './Icon';
@@ -16,7 +16,7 @@ const details = [
   { value: 'L', label: 'L · Подробная', shortLabel: 'L' },
   { value: 'S', label: 'S · Упрощённая', shortLabel: 'S' }
 ] as const;
-const itemLayouts = [
+const layoutOptions = [
   { value: 'auto', label: 'Пусть AI выберет', shortLabel: 'Авто', icon: 'astroid' },
   ...compositionLayouts
 ] as const;
@@ -25,7 +25,8 @@ export type PromptDraft = {
   mode: PromptMode;
   query: string;
   itemQuery: string;
-  itemStyle: ItemLayout;
+  itemStyle: LayoutChoice;
+  metaphorStyle: LayoutChoice;
   format: CanvasFormat;
   count: number;
   detail: 'default' | 'L' | 'S';
@@ -61,6 +62,7 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
   const popup = useRef<HTMLDivElement>(null);
   const listId = useId();
   const itemMode = draft.mode === 'items';
+  const layout = itemMode ? draft.itemStyle : draft.metaphorStyle;
   const text = itemMode ? draft.itemQuery : draft.query;
   const named = itemMode ? resolveItemList(text, items) : resolveItemMentions(text, items);
   const backgroundItems = new Set(itemMode ? items.filter(item => item.variants.some(v => v.role === 'background')).map(item => item.id) : []);
@@ -286,8 +288,8 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
             onChange={format => change({ ...draft, format })} options={canvasFormats} />
           <CustomSelect label="Детализация" triggerIcon="detail" value={draft.detail} disabled={busy}
             onChange={detail => change({ ...draft, detail })} options={details} />
-          {itemMode && <CustomSelect label="Построение" triggerIcon={draft.itemStyle === 'auto' ? 'astroid' : draft.itemStyle} value={draft.itemStyle} disabled={busy}
-            onChange={itemStyle => change({ ...draft, itemStyle })} options={itemLayouts} />}
+          <CustomSelect label="Построение" triggerIcon={layout === 'auto' ? 'astroid' : layout} value={layout} disabled={busy}
+            onChange={value => change({ ...draft, ...(itemMode ? { itemStyle: value } : { metaphorStyle: value }) })} options={layoutOptions} />
         </div>
         <button className="primary prompt-send" type="button" aria-label="Создать композиции" aria-keyshortcuts="Control+Enter"
           title="Создать композиции (Ctrl+Enter)" disabled={!canGenerate} onClick={generate}><Icon name="up" /></button>

@@ -5,8 +5,8 @@ import { chooseSceneVariant, resolveItemList, resolveItemMentions, validateScene
 import { requestAIJSON, type AIConnection } from './ai';
 
 export type PromptMode = 'items' | 'metaphor';
-export type ItemLayout = Direction['style'] | 'auto';
-export type GenerationInput = { query: string; mode?: PromptMode; setId: string; palette: string; paletteSnapshot?: Palette; width: number; height: number; count: number; variant?: number; detail?: SceneOptions['detail']; style?: ItemLayout; requiredItemIds?: string[] };
+export type LayoutChoice = Direction['style'] | 'auto';
+export type GenerationInput = { query: string; mode?: PromptMode; setId: string; palette: string; paletteSnapshot?: Palette; width: number; height: number; count: number; variant?: number; detail?: SceneOptions['detail']; style?: LayoutChoice; requiredItemIds?: string[] };
 export type Direction = { title: string; ids: string[]; palette: string; backgroundIndex: number; style: 'balanced' | 'airy'; heroId: string; backgroundIds: string[]; explanation: string };
 
 type Generator = { create: (options: SceneOptions) => Promise<{ frameIds: string[]; warnings?: string[] }>; removeGenerated: (ids: string[]) => Promise<void> };
@@ -49,10 +49,10 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
   const explicitIds = [...new Set([...requiredIds, ...(exact ? named.ids : [])])];
   if (exact && !explicitIds.length) throw new Error('Добавьте хотя бы один предмет');
   if (explicitIds.length > 8) throw new Error('В одну композицию можно включить до восьми предметов');
+  const fixedStyle = input.style === 'balanced' || input.style === 'airy' ? input.style : undefined;
   if (exact && (!query || input.mode === 'items' || input.palette !== 'auto')) {
-    const requestedStyle = input.mode === 'items' ? input.style : undefined;
-    let style = requestedStyle === 'balanced' || requestedStyle === 'airy' ? requestedStyle : undefined;
-    if (requestedStyle === 'auto') {
+    let style = fixedStyle;
+    if (input.mode === 'items' && input.style === 'auto') {
       const selectedItems = items.filter(item => explicitIds.includes(item.id)).map(item => {
         const role = named.backgroundIds.includes(item.id) ? 'background' : 'main';
         const { width, height } = chooseSceneVariant(item.variants, input.detail || 'default', role);
@@ -89,10 +89,11 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
     'heroId необязателен и выбирается только среди основных предметов. backgroundIndex (0, 1 или 2) выбирает цвет холста отдельно от фоновых предметов.',
     'Не меняй физические размеры и внутреннее устройство предметов. Для style доступны два построения.',
     ...layoutDescriptions,
-    'Выбирай balanced по умолчанию. Выбирай airy, когда пользователь просит оставить пространство в центре, например под заголовок.',
+    fixedStyle ? `Построение задано пользователем. Используй ${fixedStyle} во всех вариантах.`
+      : 'Выбирай balanced по умолчанию. Выбирай airy, когда пользователь просит оставить пространство в центре, например под заголовок.',
     exact ? 'Во всех решениях используй строго этот состав: ' + JSON.stringify(explicitIds) : '',
     requiredItems.length ? 'Обязательные предметы для каждого варианта: ' + JSON.stringify(requiredItems) + '. Включи каждый из них в ids.' : '',
-    'Верни JSON {"directions":[{"title":"Короткий заголовок по-русски","ids":["id основного предмета","id фонового предмета"],"palette":"id","backgroundIndex":0,"style":"balanced","heroId":"id основного предмета или пустая строка","backgroundIds":["id фонового предмета"],"explanation":"Одно короткое объяснение связи предметов по-русски"}]}.',
+    `Верни JSON {"directions":[{"title":"Короткий заголовок по-русски","ids":["id основного предмета","id фонового предмета"],"palette":"id","backgroundIndex":0,"style":"${fixedStyle ?? 'balanced'}","heroId":"id основного предмета или пустая строка","backgroundIds":["id фонового предмета"],"explanation":"Одно короткое объяснение связи предметов по-русски"}]}.`,
     `Формат: ${input.width}×${input.height}.`,
     'Каталог: ' + JSON.stringify(items.map(item => ({ id: item.id, name: item.name, canBackground: item.variants.some(v => v.role === 'background') }))),
     'Палитры: ' + JSON.stringify(available)
@@ -105,7 +106,7 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
     if (!ids.length || ids.length > 8) throw new Error('AI должен выбрать от одного до восьми предметов');
     if (!available.some(p => p.id === raw.palette)) throw new Error('AI вернул недоступную палитру');
     if (!Number.isInteger(raw.backgroundIndex) || raw.backgroundIndex < 0 || raw.backgroundIndex > 2) throw new Error('AI вернул недопустимый цвет фона');
-    const style = raw.style === 'diagonal' ? 'balanced' : raw.style;
+    const style = fixedStyle ?? (raw.style === 'diagonal' ? 'balanced' : raw.style);
     if (style !== 'balanced' && style !== 'airy') throw new Error('AI вернул неизвестное построение');
     const backgroundIds = raw.backgroundIds || [];
     if (!Array.isArray(backgroundIds) || backgroundIds.some(id => !ids.includes(id) || !items.find(item => item.id === id)?.variants.some(v => v.role === 'background'))) throw new Error('AI назначил недоступную фоновую роль');

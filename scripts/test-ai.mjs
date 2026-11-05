@@ -26,6 +26,8 @@ try {
   await page.goto(base + '?connected&empty');
   await page.getByRole('heading', { name: 'Новая композиция', exact: true }).waitFor();
   const prompt = page.getByRole('group', { name: 'Запрос композиции', exact: true });
+  const layout = prompt.getByRole('combobox', { name: 'Построение', exact: true });
+  assert.equal(await layout.innerText(), 'Авто');
   await prompt.getByRole('textbox', { name: 'Тема или метафора', exact: true }).waitFor();
   for (const name of ['Соотношение сторон', 'Детализация']) {
     assert.equal(await prompt.getByRole('combobox', { name, exact: true }).isVisible(), true);
@@ -92,12 +94,15 @@ try {
   assert.deepEqual([first.width, first.height], [1280, 720]);
   await more.click();
   await more.click();
+  await layout.click();
+  await page.getByRole('option', { name: 'Свободный центр', exact: true }).click();
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
   await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
   assert.equal(await metaphor.inputValue(), query);
   assert.equal(await count.innerText(), '3 вар.');
   const generated = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
   assert.equal(generated.directions.length, 3);
+  assert.deepEqual(generated.directions.map(direction => direction.style), ['airy', 'airy', 'airy']);
   assert.equal(generated.directions.every(p => p.ids.includes('starter-2')), true);
   assert.equal(new Set(generated.directions.map(p => [...p.ids].sort().join(','))).size, 3);
   await page.screenshot({ path: resolve(output, 'result.png') });
@@ -125,7 +130,6 @@ try {
 
   await page.goto(base + '?empty');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();
-  const layout = prompt.getByRole('combobox', { name: 'Построение', exact: true });
   assert.equal(await layout.innerText(), 'Баланс');
   await layout.click();
   await page.getByRole('option', { name: 'Свободный центр', exact: true }).click();
@@ -159,7 +163,7 @@ try {
   assert.equal(await itemInput.evaluate(node => node.scrollWidth <= node.clientWidth), true);
   await itemInput.fill(itemDraft);
   await prompt.getByRole('button', { name: 'Метафора', exact: true }).click();
-  assert.equal(await layout.count(), 0);
+  assert.equal(await layout.innerText(), 'Авто');
   assert.equal(await metaphor.inputValue(), '');
   await metaphor.fill('Вечер за @Телефон');
   await prompt.getByRole('button', { name: 'Предметы', exact: true }).click();

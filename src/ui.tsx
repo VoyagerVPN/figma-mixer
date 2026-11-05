@@ -40,7 +40,7 @@ function App() {
   const [generation, setGeneration] = useState(0);
   const [palettes, setPalettes] = useState<NamedPalette[]>(builtInPalettes), [paletteId, setPaletteId] = useState('auto'), [paletteOpen, setPaletteOpen] = useState(false);
   const [promptDraft, setPromptDraft] = useState<PromptDraft>({
-    mode: 'metaphor', query: '', itemQuery: '', format: canvasFormats[0].value, count: 1, detail: 'default', itemStyle: 'balanced'
+    mode: 'metaphor', query: '', itemQuery: '', format: canvasFormats[0].value, count: 1, detail: 'default', itemStyle: 'balanced', metaphorStyle: 'auto'
   }), [promptResult, setPromptResult] = useState<Direction[]>([]);
   const pendingInput = useRef<GenerationInput | null>(null);
   const keyRequested = useRef(false);
@@ -103,7 +103,7 @@ function App() {
       palette: paletteId === 'original' ? 'purple' : paletteId,
       paletteSnapshot: paletteId === 'draft' ? transientPalette || undefined : undefined,
       width, height, count: promptDraft.count, detail: promptDraft.detail, variant: generation,
-      style: promptDraft.mode === 'items' ? promptDraft.itemStyle : undefined
+      style: promptDraft.mode === 'items' ? promptDraft.itemStyle : promptDraft.metaphorStyle
     };
     pendingInput.current = input; command('generate-prompt', { input }, 'Подбираем идеи и создаём композиции…'); setGeneration(value => value + promptDraft.count);
   }

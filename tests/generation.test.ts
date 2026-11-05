@@ -39,6 +39,15 @@ test('модель получает два описанных построени
   expect(plan.map(p => p.style)).toEqual(['balanced', 'airy']);
 });
 
+test('в метафоре фиксированное построение применяется даже при другом выборе модели', async () => {
+  const plan = await planWithAI({ ...input, mode: 'metaphor', style: 'airy' }, items, builtInPalettes, connection, async (_url, request) => {
+    const { messages } = JSON.parse(String(request?.body));
+    expect(messages[0].content).toContain('Используй airy во всех вариантах');
+    return response({ directions })();
+  });
+  expect(plan.map(p => p.style)).toEqual(['airy', 'airy']);
+});
+
 test('для запроса «книга фоном» генератор сохраняет фон во всех вариантах и сбрасывает недопустимый акцент', async () => {
   const book = items[0];
   const catalog: Item[] = [{
