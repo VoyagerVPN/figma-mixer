@@ -14,10 +14,11 @@ let busy = false, initialized = false;
 const send = (message: unknown) => figma.ui.postMessage(message);
 const artwork = new ArtworkChannel(send);
 const catalog = () => send({ type: 'catalog', sets: library.sets, items: library.items, palettes: palettes.all(), keyReady: Boolean(connection.apiKey), aiConfig: publicAI(connection) });
-figma.showUI(__html__, { width: 520, height: 840, themeColors: true });
+const windowSize = { width: 640, height: 720 };
+figma.showUI(__html__, { ...windowSize, themeColors: true });
 
 figma.ui.onmessage = async message => {
-  if (message.type === 'palette-window') { figma.ui.resize(message.expanded ? 760 : 520, message.expanded ? 900 : 840); return; }
+  if (message.type === 'palette-window') { figma.ui.resize(message.expanded ? 760 : windowSize.width, message.expanded ? 900 : windowSize.height); return; }
   if (message.type === 'list-ai-models') {
     try { send({ type: 'ai-models', requestId: message.requestId, models: await listAIModels(message.config, connection) }); }
     catch (error) { send({ type: 'ai-models', requestId: message.requestId, error: error instanceof Error ? error.message : 'Не удалось получить список моделей' }); }

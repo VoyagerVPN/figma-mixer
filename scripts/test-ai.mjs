@@ -18,7 +18,8 @@ const server = createServer(async (request, response) => {
 await new Promise(done => server.listen(0, '127.0.0.1', done));
 const { chromium } = await import('playwright');
 const browser = await chromium.launch({ channel: 'msedge', headless: true, env: { ...process.env } });
-const page = await browser.newPage({ viewport: { width: 520, height: 840 } }), errors = [];
+const defaultViewport = { width: 640, height: 720 };
+const page = await browser.newPage({ viewport: defaultViewport }), errors = [];
 page.setDefaultTimeout(4000); page.on('pageerror', error => errors.push(error.message));
 const base = `http://127.0.0.1:${server.address().port}`;
 try {
@@ -128,6 +129,11 @@ try {
   assert.equal(await layout.innerText(), 'Баланс');
   await layout.click();
   await page.getByRole('option', { name: 'Свободный центр', exact: true }).click();
+  await page.setViewportSize(defaultViewport);
+  const controlRows = await prompt.locator('.prompt-options > *').evaluateAll(controls => controls.map(control => control.getBoundingClientRect().top));
+  assert.equal(new Set(controlRows).size, 1, 'Параметры генерации помещаются в одной строке');
+  await page.screenshot({ path: resolve(output, 'wide-items.png') });
+  await page.setViewportSize({ width: 400, height: 700 });
   const itemInput = prompt.getByRole('textbox', { name: 'Названия предметов', exact: true });
   await itemInput.fill('кни');
   await suggestions.getByRole('option', { name: 'Книга', exact: true }).waitFor();
