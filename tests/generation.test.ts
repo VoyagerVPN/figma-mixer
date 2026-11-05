@@ -28,7 +28,7 @@ test('один AI-запрос подбирает разные составы и
   expect(sent.response_format).toEqual({ type: 'json_object' });
 });
 
-test('для запроса «книга фоном» модель получает правило фоновой роли, а генератор получает её для каждого варианта', async () => {
+test('для запроса «книга фоном» генератор сохраняет фон во всех вариантах и сбрасывает недопустимый акцент', async () => {
   const book = items[0];
   const catalog: Item[] = [{
     ...book,
@@ -36,14 +36,14 @@ test('для запроса «книга фоном» модель получа�
     variants: [...book.variants, { ...book.variants[0], role: 'background', nodeId: 'book-bg' }]
   }, ...items.slice(1)];
   const planned = [
-    { ...directions[0], heroId: 'lamp', backgroundIds: ['book'] },
+    { ...directions[0], backgroundIds: ['book'] },
     { ...directions[1], backgroundIds: ['book'] },
-    { ...directions[1], ids: ['book', 'lamp', 'phone'], backgroundIds: ['book'] }
+    { ...directions[1], ids: ['book', 'lamp', 'phone'], heroId: 'invented', backgroundIds: ['book'] }
   ];
-  const renderedRoles: string[][] = [];
+  const renderedRoles: { backgroundIds: string[]; heroId: string }[] = [];
   const result = await generateCompositions({ ...input, mode: 'metaphor', query: 'Книга фоном', count: 3 }, catalog, builtInPalettes, connection, {
-    create: async ({ backgroundIds }) => {
-      renderedRoles.push(backgroundIds ?? []);
+    create: async ({ backgroundIds, heroId }) => {
+      renderedRoles.push({ backgroundIds: backgroundIds ?? [], heroId: heroId ?? '' });
       return { frameIds: [`frame-${renderedRoles.length}`] };
     },
     removeGenerated: async () => {}
@@ -55,7 +55,11 @@ test('для запроса «книга фоном» модель получа�
     return response({ directions: planned })();
   });
   expect(result.frameIds).toHaveLength(3);
-  expect(renderedRoles).toEqual([['book'], ['book'], ['book']]);
+  expect(renderedRoles).toEqual([
+    { backgroundIds: ['book'], heroId: '' },
+    { backgroundIds: ['book'], heroId: 'phone' },
+    { backgroundIds: ['book'], heroId: '' }
+  ]);
 });
 
 test('фиксированная палитра обязательна; явные названия с фиксированной палитрой работают локально', async () => {
@@ -124,7 +128,7 @@ test('весь план проверяется перед созданием; п
 });
 
 test('выдуманные предметы, палитры, роли и повтор одинакового состава отклоняются до рендера', async () => {
-  for (const changed of [{ ids: ['invented'] }, { palette: 'invented' }, { backgroundIds: ['book'] }, { heroId: 'invented' }, { backgroundIndex: 3 }, { ...directions[0] }]) {
+  for (const changed of [{ ids: ['invented'] }, { palette: 'invented' }, { backgroundIds: ['book'] }, { backgroundIndex: 3 }, { ...directions[0] }]) {
     await expect(planWithAI(input, items, builtInPalettes, connection, response({ directions: [directions[0], { ...directions[1], ...changed }] }))).rejects.toThrow();
   }
 });

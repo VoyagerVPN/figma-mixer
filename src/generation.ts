@@ -78,8 +78,7 @@ export async function planWithAI(input: GenerationInput, items: Item[], palettes
     if (!['balanced', 'diagonal', 'airy'].includes(raw.style)) throw new Error('AI вернул неизвестное построение');
     const backgroundIds = raw.backgroundIds || [];
     if (!Array.isArray(backgroundIds) || backgroundIds.some(id => !ids.includes(id) || !items.find(item => item.id === id)?.variants.some(v => v.role === 'background'))) throw new Error('AI назначил недоступную фоновую роль');
-    const heroId = raw.heroId || '';
-    if (heroId && (!ids.includes(heroId) || backgroundIds.includes(heroId))) throw new Error('AI назначил недопустимый главный предмет');
+    const heroId = ids.find(id => id === raw.heroId && !backgroundIds.includes(id)) ?? '';
     if (requiredIds.some(id => !ids.includes(id))) throw new Error('AI пропустил обязательный предмет');
     if (exact && (ids.length !== explicitIds.length || ids.some(id => !explicitIds.includes(id)))) throw new Error('AI изменил явно указанный состав');
     if (typeof raw.title !== 'string' || !raw.title.trim()) throw new Error('AI не указал название варианта');
