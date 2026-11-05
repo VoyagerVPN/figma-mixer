@@ -26,6 +26,7 @@ export const builtInPalettes: NamedPalette[] = data.map(p => ({ id: p.id, ...val
 
 const slots = (p: Palette) => [...p.background, ...p.object_accents, p.ink, p.paper];
 const originalColors = slots(builtInPalettes[0]);
+export const paletteKey = (palette: Palette) => slots(palette).map(value => (normalizeHex(value === 'white' ? '#FFFFFF' : value) || value).toUpperCase()).join('|');
 
 export function paletteColor(input: string, palette: Palette): string {
   const color = normalizeHex(input === 'white' ? '#FFFFFF' : input);

@@ -26,23 +26,19 @@
 .palette-composition img{display:block;width:100%;height:100%;object-fit:contain}
 .palette-composition figcaption{margin-top:6px;font-size:11px;color:var(--muted)}
 .palette-composition>div>span{font-size:12px;color:var(--muted)}
-.palette-pairs-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
-.palette-pairs-heading>span{font-size:10px;color:var(--muted)}
+.palette-pairs-heading{margin-bottom:12px}
 .palette-color-group+.palette-color-group{margin-top:16px}
 .palette-color-group h3{font-size:11px;line-height:16px;color:var(--secondary);font-weight:400;margin:0 0 8px}
-.palette-pairs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.palette-pair{display:flex;align-items:center;justify-content:space-around;gap:4px;min-height:54px;padding:6px}
+.palette-pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,100px),1fr));gap:5px}
+.palette-pair{display:grid;grid-template-columns:minmax(0,1fr) 8px minmax(0,1fr);align-items:center;gap:2px;min-height:54px;padding:4px}
 .palette-pair[aria-pressed=true]{border-color:#77777f;background:var(--raised)}
 .palette-pair>span{display:flex;flex-direction:column;align-items:center;gap:3px}
 .palette-pair i{display:block;width:22px;height:18px;border:1px solid #0002;border-radius:3px}
-.palette-pair small{font-size:9px;font-variant-numeric:tabular-nums;color:var(--secondary)}
-.palette-pair>.ui-icon{color:var(--muted);width:10px;height:10px}
+.palette-pair small{font:9px/12px Consolas,"Liberation Mono",monospace;white-space:nowrap;color:var(--secondary)}
+.palette-pair>.ui-icon{color:var(--muted);width:8px;height:8px}
 .palette-editor{min-width:0;padding:0 0 0 20px;border-left:1px solid var(--line)}
 .palette-editor>.color-picker{margin:20px 0 0}
 .palette-editor>h2{font-size:13px}
-.palette-editing-source{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin:8px 0 0;font-variant-numeric:tabular-nums}
-.palette-editing-source>i{width:14px;height:14px;border:1px solid #0002;border-radius:3px}
-.palette-editor>.hint{font-size:11px;line-height:16px;margin-top:16px}
 .picker-field-labels{display:flex;align-items:center;justify-content:space-between;color:var(--secondary);font-size:11px;margin-bottom:8px}
 .picker-fields{display:grid;grid-template-columns:minmax(0,1fr) 18px;gap:16px;height:180px;margin-right:8px}
 .picker-hs,.picker-brightness{position:relative;border-radius:3px;touch-action:none;user-select:none;cursor:crosshair}
@@ -67,7 +63,6 @@
 .palette-confirm>h2{font-size:14px}
 .palette-confirm>p{font-size:12px;line-height:18px;margin:6px 0 12px}
 .palette-confirm .palette-footer-actions{flex-wrap:wrap}
-@media(min-width:640px){.palette-pairs{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:600px){
 .palette-panel>.panel-body{padding:12px 16px}
 .palette-panel>.panel-footer{padding:12px 16px}
@@ -75,13 +70,12 @@
 .palette-layout{grid-template-columns:minmax(0,1fr);gap:12px}
 .palette-composition{margin-bottom:12px}
 .palette-composition>div{height:84px}
-.palette-pairs{grid-template-columns:repeat(3,minmax(0,1fr))}
-.palette-pair{min-height:44px;padding:4px}
+.palette-pair{min-height:44px}
 .palette-pair i{height:16px}
 .palette-pairs-heading{margin-bottom:8px}
 .palette-color-group+.palette-color-group{margin-top:10px}
 .palette-editor{padding:12px 0 0;border-left:0;border-top:1px solid var(--line)}
-.palette-editor>h2,.palette-editing-source,.palette-editor>.hint{display:none}
+.palette-editor>h2{display:none}
 .palette-editor>.color-picker{margin:0;display:grid;grid-template-columns:minmax(0,1fr) 124px;gap:8px 16px}
 .palette-editor .picker-field-labels{grid-column:1;font-size:10px;margin:0}
 .palette-editor .picker-fields{grid-column:1;grid-row:2;height:100px;margin-right:0}

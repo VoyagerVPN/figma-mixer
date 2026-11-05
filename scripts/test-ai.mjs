@@ -91,7 +91,7 @@ try {
   await metaphor.press('Tab');
   assert.equal(await metaphor.evaluate(node => document.activeElement === node), false);
   await metaphor.press('Control+Enter');
-  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 1);
   assert.equal(await metaphor.inputValue(), query);
   const first = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.deepEqual([first.width, first.height], [1280, 720]);
@@ -100,7 +100,7 @@ try {
   await layout.click();
   await page.getByRole('option', { name: 'Свободный центр', exact: true }).click();
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
-  await page.getByText('Создано вариантов: 3', { exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 3);
   assert.equal(await metaphor.inputValue(), query);
   assert.equal(await count.innerText(), '3 вар.');
   const generated = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
@@ -124,7 +124,7 @@ try {
   await page.getByRole('option', { name: 'S · Упрощённая', exact: true }).click();
   await less.click();
   await prompt.getByRole('button', { name: 'Создать композиции', exact: true }).click();
-  await page.getByText('Создано вариантов: 2', { exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 2);
   await page.waitForFunction(() => JSON.parse(document.documentElement.dataset.promptResult || '{}').directions?.every(p => p.palette === 'peach'));
   const options = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.deepEqual([options.width, options.height, options.detail], [1080, 1080, 'S']);
@@ -191,7 +191,7 @@ try {
   await itemInput.fill('Книга, Пазлы, Лампа');
   await suggestions.getByRole('option', { name: 'Лампа', exact: true }).waitFor();
   await itemInput.press('Control+Enter');
-  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 1);
   assert.equal(await itemInput.inputValue(), 'Книга, Пазлы, Лампа');
   assert.equal(await page.locator('html').getAttribute('data-ai-request'), null);
   const manual = JSON.parse(await page.locator('html').getAttribute('data-prompt-result'));
@@ -233,7 +233,7 @@ try {
   const saveAndGenerate = page.getByRole('button', { name: 'Сохранить и сгенерировать', exact: true });
   assert.equal(await saveAndGenerate.isEnabled(), true);
   await saveAndGenerate.click();
-  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 1);
   assert.equal(await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).inputValue(), 'Сложная задача и новые идеи');
   console.log('OK подключение ключа продолжает исходный запрос без повторного ввода');
 

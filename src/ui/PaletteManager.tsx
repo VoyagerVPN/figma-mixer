@@ -5,7 +5,7 @@ import type { Item, Palette } from '../types';
 import { Panel } from './Panel';
 import { Icon } from './Icon';
 import { ColorPicker } from './ColorPicker';
-import { PalettePreview, type PaletteScene } from './PalettePreview';
+import { PalettePreview } from './PalettePreview';
 
 const fields = [
   ...[0, 1, 2].map(index => ({ key: 'background' as const, index })),
@@ -16,8 +16,8 @@ const colors = (p: Palette | PaletteDraft) => [...p.background, ...p.object_acce
 const original = builtInPalettes[0], sources = colors(original);
 type Action = { type: 'close' } | { type: 'switch'; id: string } | { type: 'new' } | { type: 'import'; palette: PaletteDraft };
 
-export function PaletteManager({ palettes, selected, items, scene, busy, error, select, apply, save, exportPalette, close }: {
-  palettes: NamedPalette[]; selected: string; items: Item[]; scene: PaletteScene | null; busy: boolean; error: string;
+export function PaletteManager({ palettes, selected, items, frameIds, preview, busy, error, select, apply, save, exportPalette, close }: {
+  palettes: NamedPalette[]; selected: string; items: Item[]; frameIds?: string[]; preview: (ids: string[], palette: NamedPalette | 'original') => void; busy: boolean; error: string;
   select: (palette: NamedPalette) => void; apply: (palette: NamedPalette) => void;
   save: (palette: PaletteDraft) => Promise<NamedPalette>; exportPalette: (id: string) => void; close: () => void;
 }) {
@@ -35,6 +35,15 @@ export function PaletteManager({ palettes, selected, items, scene, busy, error, 
   const palette: NamedPalette = dirty && draft ? { ...draft, id: 'draft' } : { ...current, id: active, name: currentName };
   const targetColors = colors(palette), field = fields[index];
   const displayName = palette.name;
+  const previewRequest = frameIds && valid && !busy ? JSON.stringify([frameIds, active === 'original' && !dirty ? 'original' : palette]) : '';
+  useEffect(() => {
+    if (!previewRequest) return;
+    const timer = setTimeout(() => {
+      const [ids, palette] = JSON.parse(previewRequest) as [string[], NamedPalette | 'original'];
+      preview(ids, palette);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [preview, previewRequest]);
   const locked = !!pending || naming;
   useLayoutEffect(() => {
     if (!libraryOpen) return;
@@ -68,7 +77,8 @@ export function PaletteManager({ palettes, selected, items, scene, busy, error, 
   function requestClose() {
     if (busy) return;
     if (locked) { setPending(null); setNaming(false); return; }
-    request({ type: 'close' });
+    if (frameIds) close();
+    else request({ type: 'close' });
   }
   function requestSave(asCopy = false) {
     setCopy(asCopy); setName(draft?.name || displayName + (current.id.startsWith('custom-') ? '' : ' · копия'));
@@ -108,7 +118,8 @@ export function PaletteManager({ palettes, selected, items, scene, busy, error, 
   </div> : <div className="palette-footer">
     <span className="palette-save-state" role="status">{dirty ? 'Есть несохранённые изменения' : 'Палитра готова к использованию'}</span>
     <div className="palette-footer-actions"><button disabled={busy || !valid || !dirty} onClick={() => requestSave()}><Icon name="save" />{current.id.startsWith('custom-') && !fresh ? 'Сохранить изменения' : 'Сохранить палитру'}</button>
-      <button className="primary" disabled={busy || !valid} onClick={() => scene ? apply(palette) : select(palette)}>{scene ? 'Применить' : 'Использовать'}</button></div>
+      {frameIds && <button type="button" disabled={busy} onClick={requestClose}>Отмена</button>}
+      <button className="primary" disabled={busy || !valid} onClick={() => frameIds ? apply(palette) : select(palette)}>{frameIds ? frameIds.length > 1 ? 'Применить к ' + frameIds.length + ' вариантам' : 'Применить' : 'Использовать'}</button></div>
   </div>;
 
   return <Panel open title="Оформление композиции" className="palette-panel" close={requestClose} footer={footer}>
@@ -134,19 +145,18 @@ export function PaletteManager({ palettes, selected, items, scene, busy, error, 
           </div>}
         </div>
         <button className="icon-button" aria-label="Импорт палитры" title="Импорт JSON" disabled={busy} onClick={() => input.current?.click()}><Icon name="upload" /></button>
-        <button className="icon-button" aria-label="Экспорт JSON" title={dirty ? 'Сначала сохраните изменения' : 'Экспорт JSON'} disabled={busy || dirty || active === 'original'} onClick={() => exportPalette(active)}><Icon name="download" /></button>
+        <button className="icon-button" aria-label="Экспорт JSON" title={dirty ? 'Сначала сохраните изменения' : 'Экспорт JSON'} disabled={busy || dirty || active === 'original' || active === 'current-frame'} onClick={() => exportPalette(active)}><Icon name="download" /></button>
       </div>
       <div className="palette-layout">
         <div className="palette-mapping">
-          <PalettePreview items={items} scene={scene} palette={active === 'original' && !dirty ? undefined : palette} />
-          <div className="palette-pairs-heading"><h2>Замена цветов</h2><span>Исходный → Новый</span></div>
+          {!frameIds && <PalettePreview items={items} palette={active === 'original' && !dirty ? undefined : palette} />}
+          <h2 className="palette-pairs-heading">Замена цветов</h2>
           <div role="group" aria-label="Фон и предметы" className="palette-color-group"><h3>Фон и предметы</h3>{pairs([0, 1, 2])}</div>
           <div role="group" aria-label="Только предметы" className="palette-color-group"><h3>Только предметы</h3>{pairs([3, 4, 5, 6, 7])}</div>
         </div>
         <div className="palette-editor" role="group" aria-label="Редактор цвета">
-          <h2>Новый цвет</h2><p className="palette-editing-source">Замена <i style={{ background: sources[index] }} />{sources[index]}</p>
+          <h2>Новый цвет</h2>
           <ColorPicker key={index + '-' + colorRevision} inputLabel="замены" value={targetColors[index]} onValidityChange={setValid} onChange={changeColor} />
-          <p className="hint">Выберите цвет слева, затем измените его здесь.</p>
         </div>
       </div>
       <input ref={input} type="file" aria-label="Файл палитры" accept=".json,application/json" hidden onChange={async event => {

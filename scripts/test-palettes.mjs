@@ -48,6 +48,32 @@ try {
   assert.equal(await page.getByRole('group', { name: 'Только предметы', exact: true }).getByRole('button').count(), 5);
   assert.equal(await panel.locator('.panel-body').evaluate(node => node.scrollHeight > node.clientHeight), false);
   await visibleFooter();
+  const pairs = panel.locator('.palette-pair');
+  for (const width of [640, 400, 760]) {
+    await page.setViewportSize({ width, height: 900 });
+    const geometry = () => pairs.evaluateAll(cards => cards.map(card => {
+      const box = card.getBoundingClientRect();
+      const labels = [...card.querySelectorAll('small')].map(label => {
+        const text = document.createRange();
+        text.selectNodeContents(label);
+        const bounds = text.getBoundingClientRect();
+        return bounds.left >= box.left + 2 && bounds.right <= box.right - 2;
+      });
+      const samples = [...card.querySelectorAll('i')].map(sample => {
+        const bounds = sample.getBoundingClientRect();
+        return [bounds.left - box.left, bounds.top - box.top];
+      });
+      return { labels, samples };
+    }));
+    const before = await geometry();
+    assert.ok(before.every(card => card.labels.every(Boolean)), 'HEX помещается внутри карточек при ширине ' + width);
+    await color('#7864D7', '#FFFFFF');
+    assert.deepEqual(await geometry(), before, 'Смена HEX не сдвигает образцы при ширине ' + width);
+    await color('#7864D7', '#7864D7');
+  }
+  for (const text of ['Исходный → Новый', 'Выберите цвет слева, затем измените его здесь.', 'Замена #7864D7']) {
+    assert.equal(await panel.getByText(text, { exact: true }).count(), 0);
+  }
   await button('Заменить цвет #F9ECB0').click();
   await button('Закрыть панель').click();
   assert.equal(await panel.count(), 0, 'Выбор цвета без изменения не создаёт несохранённую палитру');
@@ -73,7 +99,7 @@ try {
   assert.ok((await paletteSelect.innerText()).includes('Авторская'));
   assert.equal(await page.locator('html').getAttribute('data-palette-window'), 'false');
   await button('Создать композиции').click();
-  await page.getByRole('heading', { name: 'Создано вариантов: 1', exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 1);
   const options = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.ok(options.palette.startsWith('custom-')); assert.equal(options.backgroundColor, '#D7CDF5');
   console.log('OK постоянный редактор, группы цветов, селектор черновика, защита закрытия и смены, сохранение с названием → генерация');
@@ -85,7 +111,7 @@ try {
   assert.equal(await button('Использовать').isEnabled(), true);
   await color('#D7CDF5', '#152535'); await button('Использовать').click();
   await button('Создать композиции').click();
-  await page.getByRole('heading', { name: 'Создано вариантов: 1', exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 1);
   const applied = JSON.parse(await page.locator('html').getAttribute('data-created'));
   assert.equal(applied.palette, 'draft'); assert.equal(applied.paletteSnapshot.background[0], '#152535');
   assert.equal(await page.locator('html').getAttribute('data-applied'), null);

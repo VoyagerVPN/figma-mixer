@@ -99,7 +99,7 @@ try {
   await page.getByRole('alert').filter({ hasText: 'вручную' }).waitFor();
   await page.getByRole('combobox', { name: 'Модель', exact: true }).fill('manual-chat-model');
   await page.getByRole('button', { name: 'Сохранить и сгенерировать', exact: true }).click();
-  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 1);
   assert.equal(await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).inputValue(), 'Командная работа');
   console.log('OK недоступный список оставляет ручной ввод и не отменяет исходную генерацию');
   assert.deepEqual(errors, []);

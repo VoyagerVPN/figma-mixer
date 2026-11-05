@@ -45,11 +45,11 @@ function itemQueryAt(text: string, caret: number, mode: PromptMode) {
   return { term: mention[1].trim(), start: mention.index!, end: caret + (text.slice(caret).match(/^[\p{L}\p{N}_-]*/u)?.[0].length || 0) };
 }
 
-export function GenerationStart({ sets, setId, items, prepareItems, loadingItems, palettes, paletteId, draft, result, busy, change, choose, choosePalette, generate, exportSvg, own, manage, finish }: {
+export function GenerationStart({ sets, setId, items, prepareItems, loadingItems, palettes, paletteId, draft, busy, change, choose, choosePalette, generate, own, manage }: {
   sets: SetInfo[]; setId: string; items: Item[]; prepareItems: () => void; loadingItems: boolean;
-  palettes: NamedPalette[]; paletteId: string; draft: PromptDraft; result: Direction[];
+  palettes: NamedPalette[]; paletteId: string; draft: PromptDraft;
   busy: boolean; change: (draft: PromptDraft) => void; choose: (id: string) => void; choosePalette: (id: string) => void;
-  generate: () => void; exportSvg: () => void; own: () => void; manage: () => void; finish: () => void;
+  generate: () => void; own: () => void; manage: () => void;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -316,12 +316,5 @@ export function GenerationStart({ sets, setId, items, prepareItems, loadingItems
         {!matches.length && <p className="hint">{busy ? 'Загружаем предметы…' : 'Предметы не найдены.'}</p>}
       </>}
     </Panel>
-    {result.length > 0 && <section className="prompt-results">
-      <div className="section-heading"><h2>Создано вариантов: {result.length}</h2>
-        <button className="text-button" disabled={busy} onClick={finish}>Продолжить в Figma<Icon name="arrow" /></button>
-      </div>
-      <p className="hint">Варианты рядом на холсте. Для экспорта выберите нужный фрейм.</p>
-      <button className="text-button with-icon" disabled={busy} onClick={exportSvg}><Icon name="download" />Экспорт SVG</button>
-    </section>}
   </div>;
 }

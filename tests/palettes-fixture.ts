@@ -1,6 +1,8 @@
 import { PaletteStore } from '../src/palette-store';
+import { paletteKey } from '../src/palettes';
 import library from '../src/assets/library.json';
 import { generateCompositions } from '../src/generation';
+import type { CompositionSelection, RecentComposition } from '../src/types';
 import { resolveItemMentions } from '../src/core';
 import { AIKeyRequired, aiPresets, configureAI, listAIModels, publicAI, validateAIConfig } from '../src/ai';
 import '../src/ui';
@@ -26,6 +28,10 @@ const send = (message: unknown) => window.postMessage({ pluginMessage: message }
 let starterPresent = !new URLSearchParams(location.search).has('empty');
 let imported: typeof items = [], importedName = '';
 let createFailed = false;
+let recent: RecentComposition[] = [], frames: CompositionSelection[] = [], selection: CompositionSelection[] = [];
+const thumbnailSvg = (color: string) => '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="56"><rect width="96" height="56" fill="' + color + '"/></svg>';
+const image = (color: string) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(thumbnailSvg(color));
+const sendSelection = () => send({ type: 'composition-selection', frames: selection });
 let keyReady = new URLSearchParams(location.search).has('connected');
 const savedAI = localStorage.getItem('mixer-ai-config-v1');
 let connection = { ...(savedAI ? validateAIConfig(JSON.parse(savedAI)) : aiPresets.deepseek), apiKey: keyReady ? 'test-key' : '' };
@@ -33,7 +39,6 @@ const catalog = () => send({ type: 'catalog', sets: [...(starterPresent ? [{ id:
 window.addEventListener('message', event => {
   const m = event.data?.pluginMessage;
   if (m?.type === 'palette-window') document.documentElement.dataset.paletteWindow = String(m.expanded);
-  if (m?.type === 'close') document.documentElement.dataset.closed = 'true';
   if (m?.type === 'ready') { catalog(); send({ type: 'idle' }); }
   if (m?.type === 'list-ai-models') void (async () => {
     try {
@@ -72,7 +77,14 @@ window.addEventListener('message', event => {
         if (new URLSearchParams(location.search).has('ai-error')) directions[0].ids = ['invented'];
         return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ directions }) } }] }));
       });
-      document.documentElement.dataset.promptResult = JSON.stringify(result); send({ type: 'prompt-result', ...result });
+      frames = result.frameIds.map((id, index) => {
+        const direction = result.directions[index], palette = store.all().find(p => p.id === direction.palette) || store.all()[0];
+        return { id, name: direction.title, paletteId: direction.palette, paletteKey: paletteKey(palette), paletteSnapshot: palette };
+      });
+      recent = frames.map(frame => ({ ...frame, image: image(frame.paletteSnapshot!.background[0]) }));
+      selection = frames.slice(0, 1);
+      document.documentElement.dataset.promptResult = JSON.stringify(result);
+      send({ type: 'prompt-result', ...result, results: recent }); sendSelection();
     } catch (error) { send({ type: error instanceof AIKeyRequired ? 'needs-key' : 'error', message: error instanceof Error ? error.message : String(error) }); }
     finally { send({ type: 'idle' }); }
   })();
@@ -92,5 +104,35 @@ window.addEventListener('message', event => {
     send({ type: 'idle' });
   }
   if (m?.type === 'export-palette') { send({ type: 'download', name: 'mixer-palette.json', data: store.export(m.id), mime: 'application/json' }); send({ type: 'idle' }); }
-  if (m?.type === 'palette') { document.documentElement.dataset.applied = JSON.stringify(m); send({ type: 'palette-applied' }); send({ type: 'idle' }); }
+  if (m?.type === 'select-composition') {
+    const frame = frames.find(frame => frame.id === m.id);
+    if (!frame) return;
+    selection = m.toggle && selection.some(frame => frame.id === m.id)
+      ? selection.filter(frame => frame.id !== m.id)
+      : [...(m.toggle ? selection : []), frame];
+    sendSelection(); send({ type: 'idle' });
+  }
+  if (m?.type === 'fixture-selection') {
+    selection = frames.filter(frame => m.ids.includes(frame.id));
+    delete document.documentElement.dataset.canvasPreview;
+    sendSelection();
+  }
+  if (m?.type === 'preview-palette') {
+    const palette = typeof m.palette === 'object' ? m.palette : store.all().find(p => p.id === m.palette) || store.all()[0];
+    document.documentElement.dataset.canvasPreview = JSON.stringify({ ids: m.ids, background: palette.background });
+    send({ type: 'canvas-preview' });
+  }
+  if (m?.type === 'cancel-palette-preview') delete document.documentElement.dataset.canvasPreview;
+  if (m?.type === 'palette') {
+    delete document.documentElement.dataset.canvasPreview;
+    document.documentElement.dataset.applied = JSON.stringify(m);
+    const palette = typeof m.palette === 'object' ? m.palette : store.all().find(p => p.id === m.palette) || store.all()[0];
+    recent = recent.map(frame => m.ids.includes(frame.id) ? { ...frame, image: image(palette.background[0]) } : frame);
+    frames = frames.map(frame => m.ids.includes(frame.id) ? { ...frame, paletteId: palette.id, paletteKey: paletteKey(palette), paletteSnapshot: palette } : frame);
+    selection = frames.filter(frame => m.ids.includes(frame.id));
+    send({ type: 'palette-applied' });
+    sendSelection();
+    send({ type: 'composition-thumbnails', results: recent });
+    send({ type: 'idle' });
+  }
 });

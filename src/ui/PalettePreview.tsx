@@ -4,8 +4,6 @@ import type { Item, Palette } from '../types';
 import { Preview } from './Preview';
 import { composeScene } from '../composition';
 
-export type PaletteScene = { svg: string; name: string; backgroundIndex?: number };
-
 export function colorizePreview(svg: string, palette?: Palette): string {
   if (!palette) return svg;
   const document = new DOMParser().parseFromString(svg, 'image/svg+xml');
@@ -45,8 +43,8 @@ function exampleScene(items: Item[]): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630"><rect width="1200" height="630" fill="#D7CDF5"/>${fragments.sort((a, b) => a.layer - b.layer).map(f => f.svg).join('')}</svg>`;
 }
 
-export function PalettePreview({ items, palette, scene }: { items: Item[]; palette?: Palette; scene?: PaletteScene | null }) {
-  const example = useMemo(() => scene ? '' : exampleScene(items), [items, scene]);
-  const svg = useMemo(() => colorizePreview(scene?.svg || example, palette), [scene, example, palette]);
-  return <figure className="palette-composition"><div>{svg ? <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)} alt="Предпросмотр композиции" draggable={false} /> : <span>Выберите предметы для предпросмотра</span>}</div><figcaption>{scene ? 'Выделенная композиция' : 'Пример с выбранными предметами'}</figcaption></figure>;
+export function PalettePreview({ items, palette }: { items: Item[]; palette?: Palette }) {
+  const example = useMemo(() => exampleScene(items), [items]);
+  const svg = useMemo(() => colorizePreview(example, palette), [example, palette]);
+  return <figure className="palette-composition"><div>{svg ? <img src={'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)} alt="Предпросмотр композиции" draggable={false} /> : <span>Выберите предметы для предпросмотра</span>}</div><figcaption>Пример с выбранными предметами</figcaption></figure>;
 }

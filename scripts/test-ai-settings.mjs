@@ -35,7 +35,7 @@ try {
   await page.getByRole('dialog', { name: 'Подключение AI', exact: true }).waitFor({ state: 'hidden' });
   await page.getByRole('textbox', { name: 'Идея или заголовок', exact: true }).fill('Обучение через практику');
   await page.getByRole('button', { name: 'Создать композиции', exact: true }).click();
-  await page.getByText('Создано вариантов: 1', { exact: true }).waitFor();
+  await page.waitForFunction(count => document.querySelectorAll('.recent-card').length === count, 1);
   const sent = JSON.parse(await page.locator('html').getAttribute('data-ai-request'));
   assert.equal(sent.url, 'https://api.openai.com/v1/chat/completions');
   assert.equal(sent.body.model, 'chosen-chat-model'); assert.ok(sent.body.max_completion_tokens); assert.equal(sent.body.thinking, undefined);
